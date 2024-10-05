@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+sqlalchemy
+psycopg2
+
+# Almacenar credenciales
+python-dotenv
+
+# Otros paquetes de desarrollo
+pytest
+pytest-asyncio
