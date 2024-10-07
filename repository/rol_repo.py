@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List
 
 from sqlalchemy import true
-from config.DB.database import SessionLocal
+from config.DB.database import get_db
 from repository.rol_permisos_repo import create_rol_permisos
 from schemas.RolPermisos import RolPermisoCreate
 from schemas.User_Schema import UserSchema
@@ -13,7 +13,7 @@ from models import model_roles as Model_R
 from models import model_permissions as ModelPermisos
 
 
-db = SessionLocal()
+db = next(get_db())
 
 
 async def get_list_roles():

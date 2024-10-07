@@ -1,9 +1,9 @@
-from config.DB.database import SessionLocal
+from config.DB.database import get_db
 from models import model_permissions as ModelPermiso
 from models import model_modules as ModelModulo
 from utils.methods import exit_json
 
-db = SessionLocal()
+db = next(get_db())
 
 async def get_list_permissions():
     try:

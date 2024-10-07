@@ -1,13 +1,13 @@
 from datetime import datetime
 from typing import List
 from fastapi import Depends
-from config.DB.database import SessionLocal
+from config.DB.database import get_db
 from schemas.RolPermisos import RolPermisoCreate, RolPermisoSchema
 from schemas.User_Schema import UserSchema
 from utils.methods import exit_json
 from models import model_roles_permissions as Model
 
-db = SessionLocal()
+db = next(get_db())
 
 
 async def get_list_roles_permissions(user: UserSchema):

@@ -1,7 +1,7 @@
 from config.security.security import crypt
 from models import model_user as ModelUser
 from models import model_roles_permissions as ModelRolPermiso
-from config.DB.database import SessionLocal
+from config.DB.database import get_db
 from utils.methods import EmailServiceEnv, exit_json, generate_random_password
 from datetime import datetime
 from sqlalchemy import and_, or_
@@ -14,7 +14,7 @@ from schemas.User_Schema import (
     UserUpdate,
 )
 
-db = SessionLocal()
+db = next(get_db())
 
 def find_user_by_id(id: int):
     try:

@@ -1,9 +1,9 @@
-from config.DB.database import SessionLocal
+from config.DB.database import get_db
 from schemas.CategoryProduct_Schema import CategorySchema
 from models import model_category_product as ModelCateg
 from utils.methods import exit_json
 
-db = SessionLocal()
+db = next(get_db())
 
 async def get_list_category():
     try:

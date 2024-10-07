@@ -1,4 +1,4 @@
-from config.DB.database import SessionLocal
+from config.DB.database import get_db
 from utils.methods import exit_json
 from datetime import datetime
 from sqlalchemy import or_, and_
@@ -9,7 +9,7 @@ from models import (
 )
 from schemas.Product_Schema import *
 
-db = SessionLocal()
+db = next(get_db())
 
 async def get_list_products(body: ParamVistaProduct):
     try:

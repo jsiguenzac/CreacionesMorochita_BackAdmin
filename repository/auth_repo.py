@@ -1,5 +1,5 @@
 from config.security.security import crypt
-from config.DB.database import SessionLocal
+from config.DB.database import get_db
 from schemas.User_Schema import ListUserSchema
 from utils.methods import exit_json
 from models import model_roles as ModelRol
@@ -7,7 +7,7 @@ from models import model_user as ModelUser
 from utils.methods import generate_random_password, EmailServiceEnv
 from sqlalchemy import or_, and_
 
-db = SessionLocal()
+db = next(get_db())
 
 async def generate_token(emailOrDNI: str, password: str):
     try:
