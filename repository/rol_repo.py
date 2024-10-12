@@ -1,8 +1,10 @@
 from datetime import datetime
 from typing import List
 
+from fastapi import Depends
 from sqlalchemy import true
 from config.DB.database import get_db
+from sqlalchemy.orm import Session
 from repository.rol_permisos_repo import create_rol_permisos
 from schemas.RolPermisos import RolPermisoCreate
 from schemas.User_Schema import UserSchema
@@ -13,10 +15,10 @@ from models import model_roles as Model_R
 from models import model_permissions as ModelPermisos
 
 
-db = next(get_db())
+# db: Session = Depends(get_db)
 
 
-async def get_list_roles():
+async def get_list_roles(db: Session):
     try:
         roles = db.query(Model_R.Roles).filter(Model_R.Roles.Activo).all()
 
@@ -35,7 +37,7 @@ async def get_list_roles():
 
 
 async def get_list_roles_by_id(
-    RolById: int, all_permissions: bool = False, only_permissions: bool = False
+    RolById: int, all_permissions: bool = False, only_permissions: bool = False, db: Session = Depends(get_db)
 ):
     try:
         roles = (
@@ -93,7 +95,7 @@ async def get_list_roles_by_id(
         return exit_json(0, {"success": False, "mensaje": str(ex)})
 
 
-async def create_new_roles(createRol: RoleCreate, user: UserSchema):
+async def create_new_roles(createRol: RoleCreate, user: UserSchema, db: Session):
     try:
 
         find_role = (
@@ -210,7 +212,7 @@ async def create_new_roles(createRol: RoleCreate, user: UserSchema):
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
 
 
-async def put_update_role(updateRol: RoleUpdate, user: UserSchema):
+async def put_update_role(updateRol: RoleUpdate, user: UserSchema, db: Session):
     try:
         if updateRol.id is None or updateRol.id < 1:
             return exit_json(0, {"exito": False, "mensaje": "ID_ROL_INVALIDO"})
@@ -312,7 +314,7 @@ async def put_update_role(updateRol: RoleUpdate, user: UserSchema):
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
 
 
-async def get_id_permisos_list():
+async def get_id_permisos_list(db: Session):
     permisos_id_list: List[int] = []
     permisos_list = db.query(ModelPermisos.Permisos).all()
     for permisos in permisos_list:
@@ -321,7 +323,7 @@ async def get_id_permisos_list():
 
 
 # Obtiene una lista de enteros con los idPermisos de los rolPermisos Registrados
-async def get_id_registered_rol_permisos_list(idRol: int):
+async def get_id_registered_rol_permisos_list(idRol: int, db: Session):
     rol_permisos_id_list: List[int] = []
     rol_permisos_list = (
         db.query(ModelRolPermiso.Rolpermisos)
@@ -340,7 +342,7 @@ async def get_unregistered_ids_permisos(idRol: int, lista_de_ids_a_activar: list
     return unregistered_ids
 
 
-async def physical_delete_role(role_id: int):
+async def physical_delete_role(role_id: int, db: Session):
     try:
         db_role = db.query(Model_R.Roles).filter(Model_R.Roles.IdRol == role_id).first()
         db_role_aux = RolePhysicalDelete(id=db_role.IdRol, name=db_role.Nombre)
@@ -356,7 +358,7 @@ async def physical_delete_role(role_id: int):
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
 
 
-async def soft_delete_role(role_id: int, user: UserSchema):
+async def soft_delete_role(role_id: int, user: UserSchema, db: Session):
     try:
         db_role = db.query(Model_R.Roles).filter(Model_R.Roles.IdRol == role_id).first()
         db_role_aux = RoleSoftDelete(idRol=db_role.IdRol, name=db_role.Nombre)
@@ -388,7 +390,7 @@ async def soft_delete_role(role_id: int, user: UserSchema):
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
 
 
-async def reverse_soft_delete_role(role_id: int, user: UserSchema):
+async def reverse_soft_delete_role(role_id: int, user: UserSchema, db: Session):
     try:
         db_role = db.query(Model_R.Roles).filter(Model_R.Roles.IdRol == role_id).first()
         db_role_aux = RoleSoftDelete(idRol=db_role.IdRol, name=db_role.Nombre)

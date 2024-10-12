@@ -52,7 +52,7 @@ db_url = db_config.get_url()
 
 # Crear el motor de la base de datos
 try:
-    engine = create_engine(db_url, echo=True, pool_pre_ping=True)  # pool_pre_ping para verificar conexiones
+    engine = create_engine(db_url, echo=True, pool_pre_ping=True, pool_recycle=3600)  # pool_pre_ping para verificar conexiones
 except SQLAlchemyError as e:
     raise RuntimeError(f"Error al conectar con la base de datos: {e}")
 

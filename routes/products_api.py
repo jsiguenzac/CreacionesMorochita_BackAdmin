@@ -15,12 +15,12 @@ router = APIRouter(
 
 
 @router.post("/List", status_code=status.HTTP_200_OK)
-async def get_products(request: ParamVistaProduct):
+async def get_products(request: ParamVistaProduct, db: Session = Depends(get_db)):
     try:
         if request.page <=0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Página no válida")
         if current_user is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
-        return await get_list_products(request)
+        return await get_list_products(request, db)
     except Exception as ex:
         return exit_json(0, str(ex))

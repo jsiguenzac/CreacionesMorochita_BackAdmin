@@ -1,7 +1,9 @@
+from fastapi import Depends
 from config.security.security import crypt
 from models import model_user as ModelUser
 from models import model_roles_permissions as ModelRolPermiso
 from config.DB.database import get_db
+from sqlalchemy.orm import Session
 from utils.methods import EmailServiceEnv, exit_json, generate_random_password
 from datetime import datetime
 from sqlalchemy import and_, or_
@@ -14,9 +16,9 @@ from schemas.User_Schema import (
     UserUpdate,
 )
 
-db = next(get_db())
+# db: Session = Depends(get_db)
 
-def find_user_by_id(id: int):
+def find_user_by_id(id: int, db: Session):
     try:
         user = db.query(ModelUser.Usuario).filter(
             ModelUser.Usuario.IdUsuario == id
@@ -42,7 +44,7 @@ def find_user_by_id(id: int):
         return exit_json(0, str(e))
 
 
-async def add_user(user: UserSchema, user_creation: UserSchema):
+async def add_user(user: UserSchema, user_creation: UserSchema, db: Session):
     try:
         find_user = db.query(ModelUser.Usuario).filter(
             ModelUser.Usuario.Correo == user.email
@@ -120,7 +122,7 @@ async def add_user(user: UserSchema, user_creation: UserSchema):
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
 
 
-async def update_user_by_id_(user: UserUpdate, user_modification: UserSchema):
+async def update_user_by_id_(user: UserUpdate, user_modification: UserSchema, db: Session):
     try:
         find_user = db.query(ModelUser.Usuario).filter(
             and_(
@@ -152,7 +154,7 @@ async def update_user_by_id_(user: UserUpdate, user_modification: UserSchema):
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
 
 
-async def get_list_users(body: ParamListUserSchema):
+async def get_list_users(body: ParamListUserSchema, db: Session):
     try:
         page_size = 10
         page = body.page
@@ -216,7 +218,7 @@ async def get_list_users(body: ParamListUserSchema):
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
 
 
-async def delete_user_by_id(id_user: int, user_delete: UserSchema):
+async def delete_user_by_id(id_user: int, user_delete: UserSchema, db: Session):
     try:
         if user_delete["id_rol"] != 1:  # 1: Administrador
             return exit_json(0, {"exito": False, "mensaje": "NO_TIENE_PERMISOS"})
@@ -245,7 +247,7 @@ async def delete_user_by_id(id_user: int, user_delete: UserSchema):
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
 
 
-async def get_list_permissions_by_user(user: UserSchema):
+async def get_list_permissions_by_user(user: UserSchema, db: Session):
     try:
         print("Usuario", user)
         permissionsUser = db.query(ModelRolPermiso.Rolpermisos).filter(
@@ -278,7 +280,7 @@ async def get_list_permissions_by_user(user: UserSchema):
 
 
 async def update_password_user_with_hash(
-    userPass: UserPasswordUpdate, user: UserSchema
+    userPass: UserPasswordUpdate, user: UserSchema, db: Session
 ):
     try:
         find_user = db.query(ModelUser.Usuario).filter(

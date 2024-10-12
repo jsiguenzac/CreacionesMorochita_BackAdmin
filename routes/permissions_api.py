@@ -14,8 +14,8 @@ router = APIRouter(
 )
 
 @router.get("/List")
-async def get_permissions():
+async def get_permissions(db: Session = Depends(get_db)):
     try:
-        return await get_list_permissions()
+        return await get_list_permissions(db)
     except Exception as ex:
         return exit_json(0, {"exito": False, "mensaje": str(ex)})

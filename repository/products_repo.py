@@ -1,4 +1,6 @@
+from fastapi import Depends
 from config.DB.database import get_db
+from sqlalchemy.orm import Session
 from utils.methods import exit_json
 from datetime import datetime
 from sqlalchemy import or_, and_
@@ -9,9 +11,9 @@ from models import (
 )
 from schemas.Product_Schema import *
 
-db = next(get_db())
+# db: Session = Depends(get_db)
 
-async def get_list_products(body: ParamVistaProduct):
+async def get_list_products(body: ParamVistaProduct, db: Session):
     try:
         idcateg = body.idCategoria
         name = body.name.strip()

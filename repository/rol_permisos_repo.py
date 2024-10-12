@@ -2,15 +2,16 @@ from datetime import datetime
 from typing import List
 from fastapi import Depends
 from config.DB.database import get_db
+from sqlalchemy.orm import Session
 from schemas.RolPermisos import RolPermisoCreate, RolPermisoSchema
 from schemas.User_Schema import UserSchema
 from utils.methods import exit_json
 from models import model_roles_permissions as Model
 
-db = next(get_db())
+# db: Session = Depends(get_db)
 
 
-async def get_list_roles_permissions(user: UserSchema):
+async def get_list_roles_permissions(user: UserSchema, db: Session):
     try:
         rolPermisos = (
             db.query(Model.Rolpermisos)

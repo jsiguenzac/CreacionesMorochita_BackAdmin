@@ -1,11 +1,13 @@
+from fastapi import Depends
 from config.DB.database import get_db
+from sqlalchemy.orm import Session
 from schemas.CategoryProduct_Schema import CategorySchema
 from models import model_category_product as ModelCateg
 from utils.methods import exit_json
 
-db = next(get_db())
+# db: Session = Depends(get_db)
 
-async def get_list_category():
+async def get_list_category(db: Session):
     try:
         category = db.query(ModelCateg.CategoriaProducto).filter(
             ModelCateg.CategoriaProducto.Activo

@@ -16,9 +16,9 @@ router = APIRouter(
 )
 
 @router.post("/Authenticate", response_model=TokenResponse, status_code=status.HTTP_200_OK, name="Login", description="Autenticación de usuario")
-async def login(form_data: LoginSchema):
+async def login(form_data: LoginSchema, db: Session = Depends(get_db)):
         try:
-                val = await generate_token(form_data.email, form_data.password)
+                val = await generate_token(form_data.email, form_data.password, db)
                 x = val.dict()
                 if x.get("state") == 0:
                         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=x.get("data"))
@@ -44,9 +44,9 @@ async def login(form_data: LoginSchema):
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
 @router.post("/RecoverPassword", status_code=status.HTTP_200_OK, description="Se envía un correo con una nueva contraseña aleatoria")
-async def Recover_Password(body: RecoverPassSchema):
+async def Recover_Password(body: RecoverPassSchema, db: Session = Depends(get_db)):
         try:
-                val = await recover_password(body.email)
+                val = await recover_password(body.email, db)
                 return val
         except Exception as e:
                 return exit_json(0, {
@@ -70,8 +70,8 @@ async def auth_user(token: str = Depends(oauth2)):
         print("Error", str(ex))
         raise excep
 
-async def current_user(user: UserSchema = Depends(auth_user)):
-        u = find_user_by_id(user)
+async def current_user(user: UserSchema = Depends(auth_user), db: Session = Depends(get_db)):
+        u = find_user_by_id(user,db)
         x = u.dict()
         if x.get("state") == 0:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=x.get("data"))                

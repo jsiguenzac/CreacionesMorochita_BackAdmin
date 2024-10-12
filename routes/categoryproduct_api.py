@@ -14,8 +14,8 @@ router = APIRouter(
 )
 
 @router.get("/List")
-async def get_categories():
+async def get_categories(db: Session = Depends(get_db)):
     try:
-        return await get_list_category()
+        return await get_list_category(db)
     except Exception as ex:
         return exit_json(0, {"exito": False, "mensaje": str(ex)})

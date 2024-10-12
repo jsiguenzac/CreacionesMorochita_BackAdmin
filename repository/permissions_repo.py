@@ -1,11 +1,13 @@
+from fastapi import Depends
 from config.DB.database import get_db
+from sqlalchemy.orm import Session
 from models import model_permissions as ModelPermiso
 from models import model_modules as ModelModulo
 from utils.methods import exit_json
 
-db = next(get_db())
+# db: Session = Depends(get_db)
 
-async def get_list_permissions():
+async def get_list_permissions(db: Session):
     try:
         permissions = db.query(
             ModelPermiso.Permisos
