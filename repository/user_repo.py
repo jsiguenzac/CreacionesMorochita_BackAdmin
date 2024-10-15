@@ -48,6 +48,7 @@ def validate_dni_exist(dni: int, email_user_current: str, db: Session):
     try:
         find_dni = db.query(ModelUser.Usuario).filter(
             and_(
+                len(str(dni)) == 8,
                 ModelUser.Usuario.DNI == dni,
                 ModelUser.Usuario.Correo != email_user_current                
             )
@@ -158,9 +159,9 @@ async def update_user_by_id_(user: UserUpdate, user_modification: UserSchema, db
 
         find_user.Nombre = user.name
         find_user.Apellidos = user.last_name
-        find_user.DNI = user.dni if user.dni else find_user.DNI
+        find_user.DNI = user.dni if user.dni else None
         find_user.IdRol = user.id_rol if user.id_rol else find_user.IdRol
-        find_user.Telefono = user.phone if user.phone else find_user.Telefono
+        find_user.Telefono = user.phone if user.phone else None
         find_user.FechaHoraModificacion = datetime.now()
         find_user.UsuarioModificacion = user_modification["email"]
 
@@ -188,10 +189,13 @@ async def get_list_users(body: ParamListUserSchema, db: Session):
         # Consulta para contar el número total de usuarios activos
         total_users = db.query(ModelUser.Usuario).filter(
             and_(
-                ModelUser.Usuario.Activo,
+                #ModelUser.Usuario.Activo,
                 or_(
-                    ModelUser.Usuario.IdRol == id_rol,
-                    id_rol == 0
+                    and_(
+                        id_rol == 0,
+                        ModelUser.Usuario.IdRol != 5
+                    ),
+                    ModelUser.Usuario.IdRol == id_rol
                 ),
                 or_(
                     name == "",
@@ -207,9 +211,12 @@ async def get_list_users(body: ParamListUserSchema, db: Session):
         
         users = db.query(ModelUser.Usuario).filter(
             and_(
-                ModelUser.Usuario.Activo,
+                #ModelUser.Usuario.Activo,
                 or_(
-                    id_rol == 0,
+                    and_(
+                        id_rol == 0,
+                        ModelUser.Usuario.IdRol != 5
+                    ),
                     ModelUser.Usuario.IdRol == id_rol
                 ),
                 or_(
@@ -237,7 +244,8 @@ async def get_list_users(body: ParamListUserSchema, db: Session):
                 active=user.Activo,
                 name_rol=user.Rol.Nombre,
                 id_rol=user.IdRol,
-                date_creation=user.FechaHoraCreacion.date().strftime("%d-%m-%Y")
+                date_creation=user.FechaHoraCreacion.date().strftime("%d-%m-%Y"),
+                total=total_users
             )
             for user in users
         ]

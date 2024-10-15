@@ -40,6 +40,7 @@ class ListUserSchema(BaseModel):
     name_rol: str
     id_rol: int
     date_creation: Optional[str] = None
+    total: Optional[int] = None
 
 class ParamListUserSchema(BaseModel):
     page: int = 1
