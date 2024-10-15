@@ -33,7 +33,7 @@ async def get_roles_active_by_id(idRol: int, all_permissions: bool = Query(False
     except Exception as ex:
         return exit_json(0, {"success": False, "mensaje": str(ex)})
 
-
+""" 
 @router.post("/Create", status_code=status.HTTP_200_OK)
 async def post_create_new_rol(
     createRol: RoleCreate,
@@ -64,3 +64,4 @@ async def put_update_active_role(
         return await put_update_role(updateRol, current_user, db)
     except Exception as ex:
         return exit_json(0, {"success": False, "mensaje": str(ex)})
+ """

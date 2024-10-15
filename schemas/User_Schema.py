@@ -18,6 +18,7 @@ class UserUpdate(BaseModel):
     dni: Optional[int] = None
     id_rol: Optional[int] = None
     phone: Optional[int] = None
+    isProfile: bool = False
     #email: str
     #password: Optional[str] = None
     
@@ -38,11 +39,13 @@ class ListUserSchema(BaseModel):
     active: bool
     name_rol: str
     id_rol: int
+    date_creation: Optional[str] = None
 
 class ParamListUserSchema(BaseModel):
     page: int = 1
     name: str = ""
-    id_rol: int = 0  
+    id_rol: int = 0
+    date_creation: int = -1
 
 class UserPasswordUpdate(BaseModel):
     current_pass: str

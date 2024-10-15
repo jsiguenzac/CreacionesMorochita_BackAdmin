@@ -59,7 +59,7 @@ async def get_list_rol_permisos_by_id(idRolPermiso: int, user: UserSchema):
         return exit_json(0, {"success": False, "mensaje": str(ex)})
 
 
-async def create_rol_permisos(rolPermiso: RolPermisoCreate, user: UserSchema):
+async def create_rol_permisos(rolPermiso: RolPermisoCreate, user: UserSchema, db: Session):
     try:
         db_rol_permiso = Model.Rolpermisos(
             IdPermiso=rolPermiso.idPermiso,

@@ -4,9 +4,9 @@ from models import model_user as ModelUser
 from models import model_roles_permissions as ModelRolPermiso
 from config.DB.database import get_db
 from sqlalchemy.orm import Session
-from utils.methods import EmailServiceEnv, exit_json, generate_random_password
+from utils.methods import EmailServiceEnv, exit_json, generate_random_password, long_to_date
 from datetime import datetime
-from sqlalchemy import and_, or_
+from sqlalchemy import Date, and_, or_
 from collections import defaultdict
 from schemas.User_Schema import (
     ListUserSchema,
@@ -44,13 +44,32 @@ def find_user_by_id(id: int, db: Session):
         return exit_json(0, str(e))
 
 
+def validate_dni_exist(dni: int, email_user_current: str, db: Session):
+    try:
+        find_dni = db.query(ModelUser.Usuario).filter(
+            and_(
+                ModelUser.Usuario.DNI == dni,
+                ModelUser.Usuario.Correo != email_user_current                
+            )
+        ).first()
+        if find_dni is not None:
+            return exit_json(1, {"exito": False, "mensaje": "DNI_EXISTENTE"})
+        return exit_json(1, {"exito": True, "mensaje": "DNI_NO_EXISTENTE"})
+    except Exception as ex:
+        return exit_json(0, {"exito": False, "mensaje": str(ex)})
+
+
 async def add_user(user: UserSchema, user_creation: UserSchema, db: Session):
     try:
         find_user = db.query(ModelUser.Usuario).filter(
             ModelUser.Usuario.Correo == user.email
         ).first()
-        print("UserEncontrado", find_user)
-
+        
+        # validar si el dni ya existe
+        dni_exist = validate_dni_exist(user.dni, user_creation["email"], db).dict()
+        if dni_exist["state"] == 1 and dni_exist["data"]["exito"] == False:
+            return dni_exist
+        
         user_creat_mod = user_creation["email"]
         new_password = generate_random_password(10)
         new_pass_encrypt = crypt.hash(new_password)
@@ -60,10 +79,10 @@ async def add_user(user: UserSchema, user_creation: UserSchema, db: Session):
             if find_user.Activo:
                 return exit_json(0, {"exito": False, "mensaje": "USUARIO_YA_EXISTE"})
             else:
-                find_user.Nombre = user.name
-                find_user.Apellidos = user.last_name
+                find_user.Nombre = user.name.strip()
+                find_user.Apellidos = user.last_name.strip()
                 find_user.DNI = user.dni
-                find_user.Clave = new_pass_encrypt                
+                find_user.Clave = new_pass_encrypt              
                 find_user.IdRol = user.id_rol
                 find_user.Telefono = user.phone
                 find_user.Activo = True
@@ -73,9 +92,9 @@ async def add_user(user: UserSchema, user_creation: UserSchema, db: Session):
                 db.refresh(user)
         else:
             new_user = ModelUser.Usuario(
-                Nombre=user.name,
-                Apellidos=user.last_name,
-                Correo=user.email,
+                Nombre=user.name.strip(),
+                Apellidos=user.last_name.strip(),
+                Correo=user.email.strip(),
                 DNI=user.dni,
                 Clave=new_pass_encrypt,
                 IdRol=user.id_rol,
@@ -89,7 +108,7 @@ async def add_user(user: UserSchema, user_creation: UserSchema, db: Session):
             db.refresh(new_user)
         
         subject = f"Plataforma Morochita - Bienvenid@"
-        emailOrDni = f"<strong>{user.email}</strong> ó </strong>{user.dni}<strong>" if len(user.dni)==8 else f"<strong>{user.email}</strong>"
+        emailOrDni = f"<strong>{user.email}</strong> ó </strong>{user.dni}<strong>" if len(str(user.dni)) == 8 else f"<strong>{user.email}</strong>"
         body = f"""
         <html>
         <body>
@@ -125,14 +144,17 @@ async def add_user(user: UserSchema, user_creation: UserSchema, db: Session):
 async def update_user_by_id_(user: UserUpdate, user_modification: UserSchema, db: Session):
     try:
         find_user = db.query(ModelUser.Usuario).filter(
-            and_(
-                ModelUser.Usuario.IdUsuario == user.id_user,
-                ModelUser.Usuario.Activo
-            )
+            ModelUser.Usuario.IdUsuario == user.id_user
         ).first()
 
         if find_user is None:
             return exit_json(0, {"exito": False, "mensaje": "USUARIO_NO_ENCONTRADO"})
+
+        # validar si el dni ya existe
+        email_user_current = user_modification["email"] if user.isProfile else find_user.Correo
+        dni_exist = validate_dni_exist(user.dni, email_user_current, db).dict()
+        if dni_exist["state"] == 1 and dni_exist["data"]["exito"] == False:
+            return dni_exist
 
         find_user.Nombre = user.name
         find_user.Apellidos = user.last_name
@@ -140,7 +162,7 @@ async def update_user_by_id_(user: UserUpdate, user_modification: UserSchema, db
         find_user.IdRol = user.id_rol if user.id_rol else find_user.IdRol
         find_user.Telefono = user.phone if user.phone else find_user.Telefono
         find_user.FechaHoraModificacion = datetime.now()
-        find_user.UsuarioModificacion = user_modification.get("email")
+        find_user.UsuarioModificacion = user_modification["email"]
 
         db.commit()
         db.refresh(find_user)
@@ -156,12 +178,13 @@ async def update_user_by_id_(user: UserUpdate, user_modification: UserSchema, db
 
 async def get_list_users(body: ParamListUserSchema, db: Session):
     try:
-        page_size = 10
+        page_size = 5
         page = body.page
         name = body.name.strip()
         id_rol = body.id_rol
+        date_creation = long_to_date(body.date_creation)
         offset = (page - 1) * page_size
-
+        
         # Consulta para contar el número total de usuarios activos
         total_users = db.query(ModelUser.Usuario).filter(
             and_(
@@ -174,6 +197,10 @@ async def get_list_users(body: ParamListUserSchema, db: Session):
                     name == "",
                     ModelUser.Usuario.Nombre.ilike(f"%{name}%"),
                     ModelUser.Usuario.Apellidos.ilike(f"%{name}%"),
+                ),
+                or_(
+                    date_creation == -1,
+                    ModelUser.Usuario.FechaHoraCreacion.cast(Date) >= date_creation
                 )
             )
         ).count()
@@ -189,6 +216,10 @@ async def get_list_users(body: ParamListUserSchema, db: Session):
                     name == "",
                     ModelUser.Usuario.Nombre.ilike(f"%{name}%"),
                     ModelUser.Usuario.Apellidos.ilike(f"%{name}%")
+                ),
+                or_(
+                    date_creation == -1,
+                    ModelUser.Usuario.FechaHoraCreacion.cast(Date) >= date_creation
                 )
             )
         ).offset(offset).limit(page_size).all()
@@ -204,6 +235,7 @@ async def get_list_users(body: ParamListUserSchema, db: Session):
                 active=user.Activo,
                 name_rol=user.Rol.Nombre,
                 id_rol=user.IdRol,
+                date_creation=user.FechaHoraCreacion.date().strftime("%d-%m-%Y")
             )
             for user in users
         ]

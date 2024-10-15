@@ -64,3 +64,16 @@ def EmailServiceEnv():
     )
     return email_service
 # END REGION
+
+# REGION: Método para convertir long a datetime UTC
+from datetime import datetime, timezone
+
+def long_to_date(timestamp: int):
+    if timestamp == -1:
+        return timestamp
+    # Convertir timestamp (milisegundos) a segundos
+    timestamp_sec = timestamp / 1000
+    # Convertir a datetime en UTC
+    dt_utc = datetime.fromtimestamp(timestamp_sec, tz=timezone.utc)
+    return dt_utc.date()
+# END REGION

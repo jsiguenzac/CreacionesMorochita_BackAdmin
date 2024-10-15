@@ -26,7 +26,7 @@ async def get_list_roles(db: Session):
             {
                 "id": rol.IdRol,
                 "name": rol.Nombre,
-                "descripcion": rol.Descripcion,
+                "description": rol.Descripcion,
             }
             for rol in roles
         ]
