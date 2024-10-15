@@ -222,6 +222,8 @@ async def get_list_users(body: ParamListUserSchema, db: Session):
                     ModelUser.Usuario.FechaHoraCreacion.cast(Date) >= date_creation
                 )
             )
+        ).order_by(
+            ModelUser.Usuario.IdUsuario.desc()
         ).offset(offset).limit(page_size).all()
 
         lstUsers = [
