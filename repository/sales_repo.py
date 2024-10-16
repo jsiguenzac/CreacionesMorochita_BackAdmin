@@ -5,7 +5,6 @@ from models import model_roles_permissions as ModelRolPermiso
 from sqlalchemy.orm import Session
 from utils.methods import EmailServiceEnv, exit_json, generate_random_password, long_to_date
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
 from sqlalchemy import Date, and_, or_
 from collections import defaultdict
 
