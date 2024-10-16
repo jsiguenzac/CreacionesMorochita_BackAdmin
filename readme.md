@@ -4,7 +4,6 @@ FastAPI - API REST Gestión Inventario/Ventas | By: Joel Sigüenza
 Explicación
 -----------
 "Creaciones Morochita" maneja actualmente sus operaciones utilizando registros en cuadernos físicos, lo cual resulta ineficiente y propenso a errores. Ante esto, surge la siguiente interrogante: ¿Qué impacto tendría la implementación de un sistema web en la gestión de inventarios y ventas de "Creaciones Morochita" en el año 2024?.
-
 Este proyecto busca implementar un sistema de gestión integral para "Creaciones Morochita", que permitirá optimizar los procesos de la empresa, mejorando la precisión en la gestión de inventarios y ventas, aplicanto la metodología Scrum y el framework de FastApi para la construcción de los servicios web haciendo uso de una base de datos PostgreSQL.
 
 Instalación
