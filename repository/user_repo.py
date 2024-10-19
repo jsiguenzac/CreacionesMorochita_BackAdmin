@@ -204,7 +204,7 @@ async def get_list_users(body: ParamListUserSchema, db: Session):
                 ),
                 or_(
                     date_creation == -1,
-                    ModelUser.Usuario.FechaHoraCreacion.cast(Date) >= date_creation
+                    ModelUser.Usuario.FechaHoraCreacion.cast(Date) == date_creation
                 )
             )
         ).count()
@@ -226,7 +226,7 @@ async def get_list_users(body: ParamListUserSchema, db: Session):
                 ),
                 or_(
                     date_creation == -1,
-                    ModelUser.Usuario.FechaHoraCreacion.cast(Date) >= date_creation
+                    ModelUser.Usuario.FechaHoraCreacion.cast(Date) == date_creation
                 )
             )
         ).order_by(

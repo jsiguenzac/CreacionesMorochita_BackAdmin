@@ -11,4 +11,6 @@ python-dotenv
 
 # Otros paquetes de desarrollo
 pytest
+pytest-mock
+httpx
 pytest-asyncio
