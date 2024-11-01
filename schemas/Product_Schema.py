@@ -31,12 +31,10 @@ class ListProductSchema(BaseModel):
     name_category: str
     id_provider: int
     name_provider: str
-    #id_user: int
-    #name_user: str
     
 class ParamVistaProduct(BaseModel):
     name: str = ""
-    idCategoria: Optional[int] = 0
+    id_category: Optional[int] = 0
     page: int = 1
     
     

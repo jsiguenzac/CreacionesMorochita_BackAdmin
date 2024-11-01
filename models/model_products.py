@@ -21,7 +21,7 @@ class Productos(Base):
     FechaHoraModificacion = Column(DateTime, nullable=True)
     UsuarioModificacion = Column(String(100), nullable=True)
     
-    Categoria = relationship("CategoriaProducto", backref=backref("tb_productos", lazy=True))    
+    Categoria = relationship("CategoriaProducto", backref=backref(__tablename__, lazy=True))    
     # Especificamos las claves foráneas correctas para cada relación
     UsuarioAdmin = relationship("Usuario", foreign_keys=[IdUsuario], backref=backref("productos_admin", lazy=True))
     UsuarioProveedor = relationship("Usuario", foreign_keys=[IdUsuarioProveedor], backref=backref("productos_proveedor", lazy=True))

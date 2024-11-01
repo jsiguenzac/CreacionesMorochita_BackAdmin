@@ -62,7 +62,7 @@ Iniciar Servidor
 ----------------
 
 ```sh
-uvicorn src.main:app --reload
+uvicorn main:app --reload
 ```
 
 `Inicio rápido:`

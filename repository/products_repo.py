@@ -15,39 +15,39 @@ from schemas.Product_Schema import *
 
 async def get_list_products(body: ParamVistaProduct, db: Session):
     try:
-        idcateg = body.idCategoria
+        idcateg = body.id_category
         name = body.name.strip()
-        page_size = 10
+        page_size = 20
         offset = (body.page - 1) * page_size
         
         total_products = db.query(ModelProduct.Productos).filter(
             and_(
                 ModelProduct.Productos.Activo,
                 or_(
-                    ModelProduct.Productos.Nombre.ilike(f"%{name}"),
-                    len(name) == 0
+                    len(name) == 0,
+                    ModelProduct.Productos.Nombre.ilike(f"%{name}")
                 ),
                 or_(
-                    ModelProduct.Productos.IdCategoria == idcateg,
-                    idcateg == 0
+                    idcateg == 0,
+                    ModelProduct.Productos.IdCategoria == idcateg
                 )
             ),
         ).count()
             
-        products = db.query(ModelProduct.Productos).order_by(
-            ModelProduct.Productos.IdProducto.asc()
-        ).filter(
+        products = db.query(ModelProduct.Productos).filter(
             and_(
                 ModelProduct.Productos.Activo,
                 or_(
-                    ModelProduct.Productos.Nombre.ilike(f"%{name}%"),
-                    len(name) == 0
+                    len(name) == 0,
+                    ModelProduct.Productos.Nombre.ilike(f"%{name}")
                 ),
                 or_(
-                    ModelProduct.Productos.IdCategoria == idcateg,
-                    idcateg == 0
+                    idcateg == 0,
+                    ModelProduct.Productos.IdCategoria == idcateg
                 )
-            )
+            ),
+        ).order_by(
+            ModelProduct.Productos.IdProducto.desc()
         ).offset(offset).limit(page_size).all()
         
         lstProducts= [
@@ -64,7 +64,6 @@ async def get_list_products(body: ParamVistaProduct, db: Session):
             )
             for prod in products
         ]
-        
         return exit_json(
             1, {"total": total_products, "page_size": page_size, "products": lstProducts}
         )

@@ -1,48 +1,88 @@
 from models import model_user as ModelUser
+from models import model_method_payment as ModelPayment
+from models import model_status_sale as ModelStatusSale
 from models import model_sale as ModelSales
 from models import model_detail_sale as ModelDetailSales
 from models import model_roles_permissions as ModelRolPermiso
+from config.DB.database import get_db
 from sqlalchemy.orm import Session
-from utils.methods import EmailServiceEnv, exit_json, generate_random_password, long_to_date
+from utils.methods import EmailServiceEnv, exit_json, long_to_date
 from datetime import datetime
 from sqlalchemy import Date, and_, or_
-from collections import defaultdict
+from schemas.Sales_Schema import *
 
-""" 
-def get_total_sales_by_user(id_user: int, db: Session):
+
+async def get_list_sales(body: ParamListSalesSchema, db: Session):
     try:
-        today = datetime.now()
-        init_date_month = datetime(today.year, today.month, 1)
-        # Si estamos en diciembre, el siguiente mes es enero del próximo año
-        if today.month == 12:
-            finish_date_month = datetime(today.year + 1, 1, 1)
-        else:
-            # Si no es diciembre, simplemente avanzamos un mes
-            finish_date_month = datetime(today.year, today.month + 1, 1)
+        page_size = 20
+        id_seller = body.id_seller
+        id_status = body.id_status
+        date_sale = long_to_date(body.date_sale)
+        offset = (body.page - 1) * page_size
         
-        total_sales = db.query(ModelSales.Venta).filter(
+        sales_total = db.query(ModelSales.Venta).filter(
             and_(
-                ModelSales.Venta.IdUsuarioCliente == id_user,
                 ModelSales.Venta.Activo,
-                ModelSales.Venta.FechaHoraVenta >= init_date_month,
-                ModelSales.Venta.FechaHoraVenta <= finish_date_month
+                or_(
+                    id_seller == 0,
+                    ModelSales.Venta.IdUsuarioVenta == id_seller
+                ),
+                or_(
+                    id_status == 0,
+                    ModelSales.Venta.IdEstadoVenta == id_status
+                ),
+                or_(
+                    date_sale == -1,
+                    ModelSales.Venta.FechaHoraVenta.cast(Date) == date_sale
+                )
             )
-        ).select_from(
-            ModelSales.Venta.
-        ).all()
+        ).count()
         
-        details = db.query(ModelDetailSales.DetalleVenta).filter(
+        sales_list = db.query(ModelSales.Venta).filter(
             and_(
-                ModelDetailSales.DetalleVenta.IdVenta.in_([sale.IdVenta for sale in total_sales]),
-                ModelDetailSales.DetalleVenta.Activo
+                ModelSales.Venta.Activo,
+                or_(
+                    id_seller == 0,
+                    ModelSales.Venta.IdUsuarioVenta == id_seller
+                ),
+                or_(
+                    id_status == 0,
+                    ModelSales.Venta.IdEstadoVenta == id_status
+                ),
+                or_(
+                    date_sale == -1,
+                    ModelSales.Venta.FechaHoraVenta.cast(Date) == date_sale
+                )
             )
-        ).all()
+        ).order_by(
+            ModelSales.Venta.IdVenta.desc()
+        ).offset(offset).limit(page_size).all()
         
-        sum_total_month = sum([detail.Total for detail in details if init_date_month <= detail.FechaCreacion <= finish_date_month])
-        
-        if total_sales is None:
-            return exit_json(0, {"mensaje": "USUARIO_NO_ENCONTRADO"})
-        return exit_json(1, {"total_sales": total_sales})
-    except Exception as e:
-        return exit_json(0, str(e))
- """
+        sales_map = [
+            ListSalesSchema(
+                id_sale=sale.IdVenta,
+                id_seller=sale.IdUsuarioVenta,
+                name_seller=sale.Usuario.Nombre,
+                name_client=sale.NombreCliente,
+                dni_client=sale.DNICliente,
+                date_sale=sale.FechaHoraVenta,
+                id_payment=sale.IdMetodoPago,
+                name_payment=sale.MetodoPago.Nombre,
+                id_status=sale.IdEstadoVenta,
+                name_status=sale.EstadoVenta.Nombre,
+                total=sale.Total
+            ) for sale in sales_list
+        ]
+        return exit_json(1, {
+                "total": sales_total,
+                "page_size": page_size,
+                "sales": sales_map
+            }
+        )
+    except Exception as ex:
+        try:
+            db.rollback()
+        except Exception as e:
+            print("ERR", str(e))
+        return exit_json(0, {"exito": False, "mensaje": str(ex)})
+

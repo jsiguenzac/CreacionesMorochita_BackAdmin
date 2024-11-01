@@ -16,7 +16,7 @@ async def get_list_category(db: Session):
         lstCategory = [
             CategorySchema(
                 idCategory = categoria.IdCategoria,
-                nombre = categoria.Nombre
+                name = categoria.Nombre
             )
             for categoria in category
         ]
