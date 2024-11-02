@@ -12,16 +12,15 @@ async def get_list_category(db: Session):
         category = db.query(ModelCateg.CategoriaProducto).filter(
             ModelCateg.CategoriaProducto.Activo
         ).all()
-        print("category: ", category)
         lstCategory = [
             CategorySchema(
-                idCategory = categoria.IdCategoria,
+                id = categoria.IdCategoria,
                 name = categoria.Nombre
             )
             for categoria in category
         ]
         return exit_json(1, {
-            "category": lstCategory
+            "categories": lstCategory
         })
     except Exception as ex:
         return exit_json(0, {"mensaje": str(ex)})

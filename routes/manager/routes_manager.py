@@ -7,7 +7,8 @@ from routes import (
     permissions_api as permissions,
     products_api as products,
     categoryproduct_api as catprod,
-    sales_api as sales
+    sales_api as sales,
+    status_sale_api as status_sale
 )
 
 class RoutesManager:
@@ -22,3 +23,4 @@ class RoutesManager:
         self.app.include_router(products.router)
         self.app.include_router(catprod.router)
         self.app.include_router(sales.router)
+        self.app.include_router(status_sale.router)

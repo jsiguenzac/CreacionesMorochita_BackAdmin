@@ -1,11 +1,14 @@
 from fastapi import Depends
 from config.DB.database import get_db
 from sqlalchemy.orm import Session
+from schemas.User_Schema import UserSchema
 from utils.methods import exit_json
 from datetime import datetime
-from sqlalchemy import or_, and_
+from sqlalchemy import func, or_, and_, Date
 from models import (
     model_products as ModelProduct,
+    model_sale as ModelSales,
+    model_detail_sale as ModelDetailSale,
     model_user as ModelUser,
     model_category_product as ModelCategory,
 )
@@ -17,7 +20,7 @@ async def get_list_products(body: ParamVistaProduct, db: Session):
     try:
         idcateg = body.id_category
         name = body.name.strip()
-        page_size = 20
+        page_size = 10
         offset = (body.page - 1) * page_size
         
         total_products = db.query(ModelProduct.Productos).filter(
@@ -25,48 +28,130 @@ async def get_list_products(body: ParamVistaProduct, db: Session):
                 ModelProduct.Productos.Activo,
                 or_(
                     len(name) == 0,
-                    ModelProduct.Productos.Nombre.ilike(f"%{name}")
+                    ModelProduct.Productos.Nombre.ilike(f"%{name}%")
                 ),
                 or_(
                     idcateg == 0,
                     ModelProduct.Productos.IdCategoria == idcateg
                 )
-            ),
+            )
         ).count()
-            
+
         products = db.query(ModelProduct.Productos).filter(
             and_(
                 ModelProduct.Productos.Activo,
                 or_(
                     len(name) == 0,
-                    ModelProduct.Productos.Nombre.ilike(f"%{name}")
+                    ModelProduct.Productos.Nombre.ilike(f"%{name}%")
                 ),
                 or_(
                     idcateg == 0,
                     ModelProduct.Productos.IdCategoria == idcateg
                 )
-            ),
+            )
         ).order_by(
             ModelProduct.Productos.IdProducto.desc()
         ).offset(offset).limit(page_size).all()
         
-        lstProducts= [
-            ListProductSchema(
-                id_product = prod.IdProducto,
-                name = prod.Nombre,
-                codesku = prod.CodigoSKU,
-                stock = prod.Stock,
-                price = prod.Precio,
-                id_category = prod.IdCategoria,
-                name_category = prod.Categoria.Nombre,
-                id_provider = prod.IdUsuarioProveedor,
-                name_provider = prod.UsuarioProveedor.Nombre
+        current_month = datetime.now().month
+        current_year = datetime.now().year
+        lstProducts = []
+        
+        for prod in products:
+            # Calcular ventas del mes actual para el producto desde la tabla de detalle de venta
+            monthly_sales = db.query(func.sum(ModelDetailSale.DetalleVenta.Cantidad)).join(
+                ModelSales.Venta,
+                ModelDetailSale.DetalleVenta.IdVenta == ModelSales.Venta.IdVenta
+            ).filter(
+                ModelDetailSale.DetalleVenta.IdProducto == prod.IdProducto,
+                func.extract('month', ModelSales.Venta.FechaHoraVenta.cast(Date)) == current_month,
+                func.extract('year', ModelSales.Venta.FechaHoraVenta.cast(Date)) == current_year
+            ).scalar() or 0  # Si no hay ventas, asigna 0
+            
+            sales_percentage = (monthly_sales / prod.Stock) * 100 if prod.Stock > 0 else 0
+            lstProducts.append(
+                ListProductSchema(
+                    id_product = prod.IdProducto,
+                    name = prod.Nombre,
+                    codesku = prod.CodigoSKU,
+                    stock = prod.Stock,
+                    price = prod.Precio,
+                    id_category = prod.IdCategoria,
+                    name_category = prod.Categoria.Nombre,
+                    id_provider = prod.IdUsuarioProveedor,
+                    name_provider = prod.UsuarioProveedor.Nombre,
+                    sales_percentage=round(sales_percentage, 2) if sales_percentage > 0 else 0
+                )
             )
-            for prod in products
-        ]
-        return exit_json(
-            1, {"total": total_products, "page_size": page_size, "products": lstProducts}
+        return exit_json(1, 
+            {
+                "total": total_products,
+                "page_size": page_size,
+                "products": lstProducts
+            }
         )
+    except Exception as ex:
+        try:
+            db.rollback()
+        except Exception as e:
+            print("ERR", str(e))
+        return exit_json(0, {"exito": False, "mensaje": str(ex)})
+
+
+async def add_product(body: ParamAddUpdateProduct, user_creation: UserSchema, db: Session):
+    try:
+        find_product = db.query(ModelProduct.Productos).filter(
+                ModelProduct.Productos.Nombre == body.name
+        ).first()
+        
+        if find_product:
+            return exit_json(0, {"exito": False, "mensaje": "PRODUCTO_EXISTENTE"})
+        
+        new_product = ModelProduct.Productos(
+            Nombre = body.name,
+            CodigoSKU = body.codesku,
+            Stock = body.stock if body.stock > 0 else 0,
+            Precio = body.price if body.price > 0 else 0,
+            IdCategoria = body.id_category,
+            IdUsuario= user_creation["id_user"],
+            IdUsuarioProveedor = body.id_provider,
+            Activo = True,
+            FechaHoraCreacion = datetime.now(),
+            UsuarioCreacion= user_creation["email"],
+        )
+        db.add(new_product)
+        db.commit()
+        db.refresh(new_product)
+        return exit_json(1, {"exito": True, "mensaje": "PRODUCTO_REGISTRADO"})
+    except Exception as ex:
+        try:
+            db.rollback()
+        except Exception as e:
+            print("ERR", str(e))
+        return exit_json(0, {"exito": False, "mensaje": str(ex)})
+
+
+async def update_product(body: ParamAddUpdateProduct, user_creation: UserSchema, db: Session):
+    try:
+        find_product = db.query(ModelProduct.Productos).filter(
+            ModelProduct.Productos.IdProducto == body.id_product
+        ).first()
+        
+        if not find_product:
+            return exit_json(0, {"exito": False, "mensaje": "PRODUCTO_NO_ENCONTRADO"})
+        
+        find_product.Nombre = body.name
+        find_product.CodigoSKU = body.codesku
+        find_product.Stock = body.stock if body.stock > 0 else 0
+        find_product.Precio = body.price if body.price > 0 else 0
+        find_product.IdCategoria = body.id_category
+        find_product.IdUsuarioProveedor = body.id_provider
+        find_product.FechaHoraModificacion = datetime.now()
+        find_product.UsuarioModificacion = user_creation["email"]        
+        db.commit()
+        db.refresh(find_product)
+        
+        return exit_json(1, {"exito": True, "mensaje": "PRODUCTO_ACTUALIZADO"})
     except Exception as ex:
         try:
             db.rollback()

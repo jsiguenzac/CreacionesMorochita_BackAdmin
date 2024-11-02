@@ -103,7 +103,7 @@ async def add_user(user: UserSchema, user_creation: UserSchema, db: Session):
                 Activo=True,
                 FechaHoraCreacion=datetime.now(),
                 UsuarioCreacion=user_creat_mod,
-            )            
+            )
             db.add(new_user)
             db.commit()
             db.refresh(new_user)

@@ -24,3 +24,23 @@ async def get_products(body: ParamVistaProduct, db: Session = Depends(get_db)):
         return await get_list_products(body, db)
     except Exception as ex:
         return exit_json(0, str(ex))
+
+
+@router.post("/Add", status_code=status.HTTP_200_OK)
+async def add_new_product(body: ParamAddUpdateProduct, current_user: UserSchema = Depends(current_user), db: Session = Depends(get_db)):
+    try:
+        if current_user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
+        return await add_product(body, current_user, db)
+    except Exception as ex:
+        return exit_json(0, str(ex))
+
+
+@router.post("/Update", status_code=status.HTTP_200_OK)
+async def update_data_product(body: ParamAddUpdateProduct, current_user: UserSchema = Depends(current_user), db: Session = Depends(get_db)):
+    try:
+        if current_user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
+        return await update_product(body, current_user, db)
+    except Exception as ex:
+        return exit_json(0, str(ex))

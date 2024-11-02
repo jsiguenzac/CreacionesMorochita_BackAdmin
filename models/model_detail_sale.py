@@ -13,6 +13,7 @@ class DetalleVenta(Base):
     
     PrecioVenta = Column(DECIMAL(10,2), nullable=False)
     Cantidad = Column(Integer, nullable=False)
+    SubTotal = Column(DECIMAL(10,2), nullable=False)
     Activo = Column(Boolean, default=True)
     FechaHoraCreacion = Column(DateTime, nullable=True)
     UsuarioCreacion = Column(String(100), nullable=True)
