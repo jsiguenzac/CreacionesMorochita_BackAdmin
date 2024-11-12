@@ -8,7 +8,8 @@ from routes import (
     products_api as products,
     categoryproduct_api as catprod,
     sales_api as sales,
-    status_sale_api as status_sale
+    status_sale_api as status_sale,
+    method_payments_api as method_payments
 )
 
 class RoutesManager:
@@ -24,3 +25,4 @@ class RoutesManager:
         self.app.include_router(catprod.router)
         self.app.include_router(sales.router)
         self.app.include_router(status_sale.router)
+        self.app.include_router(method_payments.router)

@@ -1,6 +1,7 @@
 from models import model_user as ModelUser
 from models import model_method_payment as ModelPayment
 from models import model_status_sale as ModelStatusSale
+from models import model_products as ModelProducts
 from models import model_sale as ModelSales
 from models import model_detail_sale as ModelDetailSales
 from models import model_roles_permissions as ModelRolPermiso
@@ -11,6 +12,7 @@ from utils.methods import EmailServiceEnv, exit_json, long_to_date
 from datetime import datetime
 from sqlalchemy import Date, and_, or_
 from schemas.Sales_Schema import *
+from collections import defaultdict
 
 
 async def get_list_sales(body: ParamListSalesSchema, db: Session):
@@ -63,10 +65,11 @@ async def get_list_sales(body: ParamListSalesSchema, db: Session):
             ListSalesSchema(
                 id_sale=sale.IdVenta,
                 id_seller=sale.IdUsuarioVenta,
-                name_seller=sale.Usuario.Nombre,
+                name_seller=sale.UsuarioVenta.Nombre,
                 name_client=sale.NombreCliente,
                 dni_client=sale.DNICliente,
-                date_sale=sale.FechaHoraVenta,
+                # convertir fecha a string
+                date_sale=sale.FechaHoraVenta.strftime("%d-%m-%Y"),
                 id_payment=sale.IdMetodoPago,
                 name_payment=sale.MetodoPago.Nombre,
                 id_status=sale.IdEstadoVenta,
@@ -88,11 +91,45 @@ async def get_list_sales(body: ParamListSalesSchema, db: Session):
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
 
 
+async def validate_stock(products: list, db: Session):
+    try:
+        # Agrupar productos por `id` y sumar cantidades ignorando `talla`
+        product_quantities = defaultdict(int)
+        for product in products:
+            product_quantities[product.id] += product.quantity
+        # Obtener el stock actual de los productos en la base de datos
+        product_ids = list(product_quantities.keys())
+        products_in_db = db.query(ModelProducts.Productos).filter(
+            and_(
+                ModelProducts.Productos.Activo,
+                ModelProducts.Productos.IdProducto.in_(product_ids)
+            )
+        ).all()
+        # Crear un mapa de stock para cada `IdProducto`
+        stock_map = {p.IdProducto: (p.Stock, p.Nombre) for p in products_in_db}
+        # Validación de stock
+        for product_id, total_quantity in product_quantities.items():
+            # Verificar que el producto exista en el stock
+            if product_id not in stock_map:
+                return False, f"PRODUCTO_NO_ENCONTRADO", product_id
+
+            # Validar que el stock sea suficiente
+            if stock_map[product_id][0] < total_quantity:
+                return False, f"STOCK_INSUFICIENTE", stock_map[product_id][1]
+        return True, "STOCK_VALIDADO", None
+    except Exception as ex:
+        return exit_json(0, {"exito": False, "mensaje": str(ex)})
+
+
 async def add_sale(body: ParamAddUpdateSale, user_creation: UserSchema, db: Session):
     try:
         # Validación de productos
         if not body.products:
             return exit_json(0, {"exito": False, "mensaje": "NO_HAY_PRODUCTOS"})
+        # validar stock de productos
+        stock_valid, msg, id_product = await validate_stock(body.products, db)
+        if not stock_valid:
+            return exit_json(0, {"exito": False, "mensaje": msg, "product": id_product})
         
         # Registro de venta
         date_sale_created = datetime.now()
@@ -117,8 +154,9 @@ async def add_sale(body: ParamAddUpdateSale, user_creation: UserSchema, db: Sess
             detail_sale = ModelDetailSales.DetalleVenta(
                 IdVenta=new_sale.IdVenta,
                 IdProducto=product.id_product,
+                Talla=product.talla,
                 Cantidad=product.quantity,
-                Precio=product.price,
+                PrecioVenta=product.price,
                 SubTotal=product.subtotal,
                 Activo=True,
                 FechaHoraCreacion=date_sale_created,
@@ -138,8 +176,7 @@ async def update_sale(body: ParamAddUpdateSale, user_update: UserSchema, db: Ses
         # Validación de productos
         if not body.products:
             return exit_json(0, {"exito": False, "mensaje": "NO_HAY_PRODUCTOS"})
-        
-        # Obtener venta existente
+
         date_sale_updated = datetime.now()
         u_update = user_update["email"]
         
@@ -149,9 +186,8 @@ async def update_sale(body: ParamAddUpdateSale, user_update: UserSchema, db: Ses
         
         if not find_sale:
             return exit_json(0, {"exito": False, "mensaje": "VENTA_NO_ENCONTRADA"})
-        
+
         # Actualizar venta
-        find_sale.IdUsuarioVenta = body.id_seller
         find_sale.NombreCliente = body.name_client
         find_sale.DNICliente = body.dni_client
         find_sale.IdMetodoPago = body.id_payment
@@ -163,10 +199,7 @@ async def update_sale(body: ParamAddUpdateSale, user_update: UserSchema, db: Ses
 
         # Obtener productos actuales en la base de datos
         existing_details = db.query(ModelDetailSales.DetalleVenta).filter(
-            and_(
-                ModelDetailSales.DetalleVenta.Activo,
-                ModelDetailSales.DetalleVenta.IdVenta == body.id_sale
-            )
+            ModelDetailSales.DetalleVenta.IdVenta == body.id_sale
         ).all()
         
         # Crear un diccionario de productos actuales para optimizar la búsqueda
@@ -176,10 +209,16 @@ async def update_sale(body: ParamAddUpdateSale, user_update: UserSchema, db: Ses
         for product in body.products:
             detail = existing_details_dict.get(product.id_product)
             
+            # Validar stock solo si es un producto nuevo o si la cantidad es diferente
+            if detail is None or detail.Cantidad != product.quantity:
+                stock_valid, msg, id_product = await validate_stock([product], db)
+                if not stock_valid:
+                    return exit_json(0, {"exito": False, "mensaje": msg, "product": id_product})
             if detail:
                 # Actualizar detalles existentes
                 detail.Cantidad = product.quantity
-                detail.Precio = product.price
+                detail.PrecioVenta = product.price
+                detail.Talla = product.talla
                 detail.SubTotal = product.subtotal
                 detail.FechaHoraModificacion = date_sale_updated
                 detail.UsuarioModificacion = u_update
@@ -189,7 +228,8 @@ async def update_sale(body: ParamAddUpdateSale, user_update: UserSchema, db: Ses
                     IdVenta=body.id_sale,
                     IdProducto=product.id_product,
                     Cantidad=product.quantity,
-                    Precio=product.price,
+                    PrecioVenta=product.price,
+                    Talla=product.talla,
                     SubTotal=product.subtotal,
                     Activo=True,
                     FechaHoraCreacion=date_sale_updated,
@@ -204,9 +244,33 @@ async def update_sale(body: ParamAddUpdateSale, user_update: UserSchema, db: Ses
                 detail.Activo = False
                 detail.FechaHoraModificacion = date_sale_updated
                 detail.UsuarioModificacion = u_update
-
+        
         db.commit()
         return exit_json(1, {"exito": True, "mensaje": "VENTA_ACTUALIZADA"})    
     except Exception as ex:
         db.rollback()
+        return exit_json(0, {"exito": False, "mensaje": str(ex)})
+
+
+async def details_sale(id_sale: int, db: Session):
+    try:
+        details = db.query(ModelDetailSales.DetalleVenta).filter(
+            and_(
+                ModelDetailSales.DetalleVenta.Activo,
+                ModelDetailSales.DetalleVenta.IdVenta == id_sale
+            )
+        ).all()
+        
+        details_map = [
+            ProductSaleSchema(
+                id_product=detail.IdProducto,
+                name_product=detail.Producto.Nombre,
+                talla=detail.Talla,
+                quantity=detail.Cantidad,
+                price=detail.PrecioVenta,
+                subtotal=detail.SubTotal
+            ) for detail in details
+        ]
+        return exit_json(1, {"details": details_map})
+    except Exception as ex:
         return exit_json(0, {"exito": False, "mensaje": str(ex)})

@@ -61,14 +61,14 @@ async def detail_user(id_user: int, db: Session = Depends(get_db)):
     except Exception as e:
         return exit_json(0, str(e))
 
-@router.put("/Delete/{id_user}", status_code=status.HTTP_200_OK)
-async def delete_user(id_user: int, current_user: UserSchema = Depends(current_user), db: Session = Depends(get_db)):
+@router.put("/Update/Status", status_code=status.HTTP_200_OK)
+async def update_status_user(id_user: int, is_active: bool, current_user: UserSchema = Depends(current_user), db: Session = Depends(get_db)):
     try:
         if current_user is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
-        return await delete_user_by_id(id_user, current_user, db)
+        return await update_status_user_by_id(id_user, is_active, current_user, db)
     except Exception as e:
-        return
+        return exit_json(0, str(e))
 
 @router.get("/Permissions", status_code=status.HTTP_200_OK)
 async def get_permissions_by_user(current_user: UserSchema = Depends(current_user), db: Session = Depends(get_db)):

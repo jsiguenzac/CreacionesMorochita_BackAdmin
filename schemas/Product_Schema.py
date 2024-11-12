@@ -26,3 +26,6 @@ class ParamAddUpdateProduct(BaseModel):
     price: float
     id_category: int
     id_provider: int
+
+class ParamFindProduct(BaseModel):
+    name: str = ""

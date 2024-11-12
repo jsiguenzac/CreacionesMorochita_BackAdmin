@@ -11,6 +11,7 @@ class DetalleVenta(Base):
     IdVenta = Column(Integer, ForeignKey('tb_venta.IdVenta'), nullable=False)
     IdProducto = Column(Integer, ForeignKey('tb_productos.IdProducto'), nullable=False)
     
+    Talla = Column(String(100), nullable=True)
     PrecioVenta = Column(DECIMAL(10,2), nullable=False)
     Cantidad = Column(Integer, nullable=False)
     SubTotal = Column(DECIMAL(10,2), nullable=False)

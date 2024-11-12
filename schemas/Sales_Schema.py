@@ -22,16 +22,31 @@ class ListSalesSchema(BaseModel):
     
 class ProductSaleSchema(BaseModel):
     id_product: int
+    name_product: Optional[str] = None
+    talla: Optional[str] = None
     price: float
     quantity: int
     subtotal: float
 
 class ParamAddUpdateSale(BaseModel):
     id_sale: Optional[int] = None
-    id_seller: int
     name_client: str
-    dni_client: int
+    dni_client: Optional[int] = None
     id_payment: int
     id_status: int
     total: float
+    products: List[ProductSaleSchema]
+
+class DetailSalesSchema(BaseModel):
+    """ id_sale: int
+    id_seller: int
+    name_seller: str
+    name_client: str
+    dni_client: Optional[int] = None
+    date_sale: str
+    id_payment: int
+    name_payment: str
+    id_status: int
+    name_status: str
+    total: float """
     products: List[ProductSaleSchema]

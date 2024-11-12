@@ -260,27 +260,24 @@ async def get_list_users(body: ParamListUserSchema, db: Session):
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
 
 
-async def delete_user_by_id(id_user: int, user_delete: UserSchema, db: Session):
+async def update_status_user_by_id(id_user: int, is_active, user_delete: UserSchema, db: Session):
     try:
         if user_delete["id_rol"] != 1:  # 1: Administrador
             return exit_json(0, {"exito": False, "mensaje": "NO_TIENE_PERMISOS"})
 
         user = db.query(ModelUser.Usuario).filter(
-            and_(
-                ModelUser.Usuario.IdUsuario == id_user,
-                ModelUser.Usuario.Activo
-            )
+            ModelUser.Usuario.IdUsuario == id_user
         ).first()
 
         if user is None:
             return exit_json(0, {"exito": False, "mensaje": "USUARIO_NO_ENCONTRADO"})
 
-        user.Activo = False
+        user.Activo = is_active
         user.FechaHoraModificacion = datetime.now()
         user.UsuarioModificacion = user_delete["email"]
         db.commit()
         db.refresh(user)
-        return exit_json(1, {"exito": True, "mensaje": "USUARIO_ELIMINADO"})
+        return exit_json(1, {"exito": True, "mensaje": "ESTADO_USUARIO_ACTUALIZADO"})
     except Exception as ex:
         try:
             db.rollback()

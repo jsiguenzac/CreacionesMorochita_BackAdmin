@@ -44,3 +44,13 @@ async def update_data_product(body: ParamAddUpdateProduct, current_user: UserSch
         return await update_product(body, current_user, db)
     except Exception as ex:
         return exit_json(0, str(ex))
+
+
+@router.post("/ByName", status_code=status.HTTP_200_OK)
+async def get_product_by_name(body: ParamFindProduct, db: Session = Depends(get_db)):
+    try:
+        if current_user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
+        return await find_product_by_name(body.name.strip(), db)
+    except Exception as ex:
+        return exit_json(0, str(ex))

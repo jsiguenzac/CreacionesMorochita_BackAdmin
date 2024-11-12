@@ -158,3 +158,24 @@ async def update_product(body: ParamAddUpdateProduct, user_creation: UserSchema,
         except Exception as e:
             print("ERR", str(e))
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
+
+
+async def find_product_by_name(name: str, db: Session):
+    try:
+        find_products = db.query(ModelProduct.Productos).filter(
+            and_(
+                ModelProduct.Productos.Activo,
+                ModelProduct.Productos.Nombre.ilike(f"%{name}%")
+            )
+        ).all()
+        result = [
+            {
+                "id_product": find_product.IdProducto,
+                "name": find_product.Nombre,
+                "price": find_product.Precio,
+                "stock": find_product.Stock
+            } for find_product in find_products
+        ] if len(find_products) > 0 else []
+        return exit_json(1, {"products": result})      
+    except Exception as ex:
+        return exit_json(0, {"exito": False, "mensaje": str(ex)})
