@@ -355,11 +355,11 @@ async def update_password_user_with_hash(
 async def details_dashboard_by_user(user: UserSchema, db: Session):
     try:
         # Obtener permisos del usuario de una vez
-        permissions = await get_list_permissions_by_user(user, db)        
+        """ permissions = await get_list_permissions_by_user(user, db)        
         if permissions.state == 0:
-            return exit_json(0, { "mensaje": "Usuario sin permisos" })
+            return exit_json(0, { "mensaje": "Usuario sin permisos" }) """
 
-        # Obtener la fecha de inicio del mes y seis meses atrás
+        # Fecha de inicio del mes actual y seis meses atrás
         start_of_month = datetime.now().replace(day=1)
         six_months_ago = datetime.now() - timedelta(days=180)
         previous_six_months = six_months_ago - timedelta(days=180)
@@ -377,7 +377,7 @@ async def details_dashboard_by_user(user: UserSchema, db: Session):
         porcent_users_news_month = round((new_users_month / total_users) * 100, 2) if total_users else 0
         flag_users_news_month = porcent_users_news_month < 0
 
-        # Ventas del día actual y últimos 6 meses
+        # Ventas del día actual, últimos 6 meses y período anterior
         ventas_hoy, ventas_ultimos_6_meses, ventas_periodo_anterior = db.query(
             func.sum(ModelSale.Venta.Total).filter(
                 ModelSale.Venta.Activo,
@@ -418,6 +418,37 @@ async def details_dashboard_by_user(user: UserSchema, db: Session):
         porcent_inventory_news_month = round((new_stock_month / total_inventory) * 100, 2) if total_inventory else 0
         flag_inventory_news_month = porcent_inventory_news_month < 0
 
+        # Ventas del mes actual según estado (1: pendiente, 2: completada, 3: anulada)
+        ventas_estado = db.query(
+            ModelSale.Venta.IdEstadoVenta,
+            func.sum(ModelSale.Venta.Total)
+        ).filter(
+            ModelSale.Venta.Activo,
+            ModelSale.Venta.FechaHoraVenta >= start_of_month
+        ).group_by(ModelSale.Venta.IdEstadoVenta).all()
+
+        # Procesar resultados para obtener total y porcentajes de ventas por estado
+        total_ventas_mes_actual = sum(v[1] or 0 for v in ventas_estado)
+        ventas_por_estado = {
+            "pending": 0,
+            "complete": 0,
+            "annul": 0,
+            "porcent_pending": 0,
+            "porcent_complete": 0,
+            "porcent_annul": 0
+        }
+
+        for estado, total in ventas_estado:
+            if estado == 1:
+                ventas_por_estado["pending"] = total or 0
+                ventas_por_estado["porcent_pending"] = round((total / total_ventas_mes_actual) * 100, 2) if total_ventas_mes_actual else 0
+            elif estado == 2:
+                ventas_por_estado["complete"] = total or 0
+                ventas_por_estado["porcent_complete"] = round((total / total_ventas_mes_actual) * 100, 2) if total_ventas_mes_actual else 0
+            elif estado == 3:
+                ventas_por_estado["annul"] = total or 0
+                ventas_por_estado["porcent_annul"] = round((total / total_ventas_mes_actual) * 100, 2) if total_ventas_mes_actual else 0
+
         return exit_json(1, {
             "users": {
                 "total_users": total_users,
@@ -429,6 +460,7 @@ async def details_dashboard_by_user(user: UserSchema, db: Session):
                 "sales_last_6_month": ventas_ultimos_6_meses,
                 "porcent_sales": porcentaje_ventas,
                 "flag_porcent_sales": flag_porcent_ventas,
+                "sales_status": ventas_por_estado
             },
             "inventory": {
                 "total_inventory": total_inventory,
