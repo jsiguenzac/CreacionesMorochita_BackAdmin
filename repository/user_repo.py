@@ -2,11 +2,13 @@ from fastapi import Depends
 from config.security.security import crypt
 from models import model_user as ModelUser
 from models import model_roles_permissions as ModelRolPermiso
+from models import model_sale as ModelSale
+from models import model_products as ModelProduct
 from config.DB.database import get_db
 from sqlalchemy.orm import Session
 from utils.methods import EmailServiceEnv, exit_json, generate_random_password, long_to_date
-from datetime import datetime
-from sqlalchemy import Date, and_, or_
+from datetime import datetime, timedelta
+from sqlalchemy import Date, and_, or_, func
 from collections import defaultdict
 from schemas.User_Schema import (
     ListUserSchema,
@@ -295,7 +297,6 @@ async def get_list_permissions_by_user(user: UserSchema, db: Session):
                 ModelRolPermiso.Rolpermisos.IdRol == user["id_rol"]
             )
         ).all()
-        print("Permisos", permissionsUser)
         # Diccionario para agrupar permisos por módulo
         modulos_permisos = defaultdict(lambda: {"name_module": "", "permissions": []})
         
@@ -349,3 +350,91 @@ async def update_password_user_with_hash(
         except Exception as e:
             print("ERR", str(e))
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
+
+
+async def details_dashboard_by_user(user: UserSchema, db: Session):
+    try:
+        # Obtener permisos del usuario de una vez
+        permissions = await get_list_permissions_by_user(user, db)        
+        if permissions.state == 0:
+            return exit_json(0, { "mensaje": "Usuario sin permisos" })
+
+        # Obtener la fecha de inicio del mes y seis meses atrás
+        start_of_month = datetime.now().replace(day=1)
+        six_months_ago = datetime.now() - timedelta(days=180)
+        previous_six_months = six_months_ago - timedelta(days=180)
+
+        # Total de usuarios activos y nuevos usuarios en el mes actual
+        total_users, new_users_month = db.query(
+            func.count(ModelUser.Usuario.IdUsuario).filter(ModelUser.Usuario.Activo, ModelUser.Usuario.IdRol != 5),
+            func.count(ModelUser.Usuario.IdUsuario).filter(
+                ModelUser.Usuario.Activo,
+                ModelUser.Usuario.FechaHoraCreacion >= start_of_month
+            )
+        ).first()
+
+        # Porcentaje de nuevos usuarios
+        porcent_users_news_month = round((new_users_month / total_users) * 100, 2) if total_users else 0
+        flag_users_news_month = porcent_users_news_month < 0
+
+        # Ventas del día actual y últimos 6 meses
+        ventas_hoy, ventas_ultimos_6_meses, ventas_periodo_anterior = db.query(
+            func.sum(ModelSale.Venta.Total).filter(
+                ModelSale.Venta.Activo,
+                ModelSale.Venta.FechaHoraVenta.cast(Date) == datetime.now().date()
+            ),
+            func.sum(ModelSale.Venta.Total).filter(
+                ModelSale.Venta.Activo,
+                ModelSale.Venta.FechaHoraVenta >= six_months_ago
+            ),
+            func.sum(ModelSale.Venta.Total).filter(
+                ModelSale.Venta.Activo,
+                ModelSale.Venta.FechaHoraVenta.between(previous_six_months, six_months_ago)
+            )
+        ).first()
+
+        # Asegurar valores no nulos para evitar errores de tipo
+        ventas_hoy = ventas_hoy or 0
+        ventas_ultimos_6_meses = round(ventas_ultimos_6_meses or 0, 2)
+        ventas_periodo_anterior = ventas_periodo_anterior or 0
+
+        # Porcentaje de cambio en ventas de los últimos 6 meses
+        porcentaje_ventas = (
+            round(((ventas_ultimos_6_meses - ventas_periodo_anterior) / ventas_periodo_anterior) * 100, 2)
+            if ventas_periodo_anterior else 0
+        )
+        flag_porcent_ventas = porcentaje_ventas < 0
+
+        # Total de inventario activo y nuevos productos del mes
+        total_inventory, new_stock_month = db.query(
+            func.count(ModelProduct.Productos.IdProducto).filter(ModelProduct.Productos.Activo),
+            func.count(ModelProduct.Productos.IdProducto).filter(
+                ModelProduct.Productos.Activo,
+                ModelProduct.Productos.FechaHoraCreacion >= start_of_month
+            )
+        ).first()
+
+        # Porcentaje de nuevos productos en el mes
+        porcent_inventory_news_month = round((new_stock_month / total_inventory) * 100, 2) if total_inventory else 0
+        flag_inventory_news_month = porcent_inventory_news_month < 0
+
+        return exit_json(1, {
+            "users": {
+                "total_users": total_users,
+                "porcent_users_news_month": porcent_users_news_month,
+                "flag_users_news_month": flag_users_news_month
+            },
+            "sales": {
+                "sales_today": ventas_hoy,
+                "sales_last_6_month": ventas_ultimos_6_meses,
+                "porcent_sales": porcentaje_ventas,
+                "flag_porcent_sales": flag_porcent_ventas,
+            },
+            "inventory": {
+                "total_inventory": total_inventory,
+                "porcent_inventory_news_month": porcent_inventory_news_month,
+                "flag_inventory_news_month": flag_inventory_news_month
+            }
+        })
+    except Exception as ex:
+        return exit_json(0, {"mensaje": str(ex)})

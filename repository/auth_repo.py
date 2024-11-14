@@ -67,12 +67,14 @@ async def recover_password(email: str, db: Session):
             return exit_json(0, {
                 "exito": False,
                 "mensaje": "CORREO_INVALIDO"
-            })        
+            })
         user = db.query(
             ModelUser.Usuario
         ).filter(
-            ModelUser.Usuario.Activo and 
-            ModelUser.Usuario.Correo == email.strip()
+            and_(
+                ModelUser.Usuario.Activo,
+                ModelUser.Usuario.Correo == email
+            )
         ).first()
         
         if user is None:
@@ -93,9 +95,8 @@ async def recover_password(email: str, db: Session):
             <p>Tu nueva contraseña temporal es: <strong>{new_password}</strong></p>
             <p>Por favor, utiliza esta contraseña para iniciar sesión. 
             <br>
-            Te recomendamos cambiar esta contraseña una vez hayas iniciado sesión.</p>
+            Te recomendamos cambiar esta contraseña desde tu perfil una vez hayas iniciado sesión.</p>
             <p>Gracias,</p>
-            <br>
             <p>El Equipo de Soporte.</p>
         </body>
         </html>

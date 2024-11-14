@@ -78,3 +78,12 @@ async def get_permissions_by_user(current_user: UserSchema = Depends(current_use
         return await get_list_permissions_by_user(current_user, db)
     except Exception as ex:
         return exit_json(0, {"success": False, "mensaje": str(ex)})
+
+@router.get("/Dashboard", status_code=status.HTTP_200_OK)
+async def get_dashboard(current_user: UserSchema = Depends(current_user), db: Session = Depends(get_db)):
+    try:
+        if current_user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
+        return await details_dashboard_by_user(current_user, db)
+    except Exception as ex:
+        return exit_json(0, {"success": False, "mensaje": str(ex)})
