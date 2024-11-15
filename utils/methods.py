@@ -100,39 +100,82 @@ def export_sales_report_to_excel(sales: List[dict]):
             "Total", "Detalle de Productos"
         ]
         df = pd.DataFrame(columns=columns)
-
-        # Llenar el DataFrame con los datos de ventas.
+        
+        # Preparar las filas de ventas
+        rows = []
         for sale in sales:
-            # Concatenar detalles de productos en un solo string.
-            products_details = '\n'.join(',',[
-                f"Producto: {product['name_product']}, "
-                f"Talla: {product['talla']}, Precio: {product['price']}, "
-                f"Cantidad: {product['quantity']}, Subtotal: {product['subtotal']}"
+            # Concatenar detalles de productos en un solo string con saltos de línea
+            products_details = '\n'.join([
+                f"Producto: {product['name_product']} / "
+                f"Talla: {product['talla']} / Precio: {product['price']} / "
+                f"Cantidad: {product['quantity']} / Subtotal: {product['subtotal']}"
                 for product in sale["products"]
             ])
             
             # Crear una fila con los datos de la venta.
-            row = {
-                "Vendedor": sale["name_seller"],
-                "Cliente": sale["name_client"],
-                "DNI Cliente": sale.get("dni_client", "N/A"),
-                "Fecha Venta": sale["date_sale"],
-                "Hora Venta": sale["hour_sale"],
-                "Método de Pago": sale["name_payment"],
-                "Estado Venta": sale["name_status"],
-                "Total": sale["total"],
-                "Detalle de Productos": products_details
-            }
-            
-            # Agregar la fila al DataFrame.
-            df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+            row = [
+                sale["name_seller"],
+                sale["name_client"],
+                sale.get("dni_client", "N/A") if sale["dni_client"] else "N/A",
+                sale["date_sale"],
+                sale["hour_sale"],
+                sale["name_payment"],
+                sale["name_status"],
+                sale["total"],
+                products_details
+            ]
+            rows.append(row)
         
         # Crear el archivo Excel y guardar el DataFrame.
         with pd.ExcelWriter(file_path, engine='xlsxwriter') as excel_writer:
+            # Escribir el DataFrame vacío para la estructura inicial
             df.to_excel(excel_writer, index=False, sheet_name="Reporte de Ventas")
+
+            # Obtener el libro y la hoja activa
+            workbook  = excel_writer.book
+            worksheet = workbook.get_worksheet_by_name("Reporte de Ventas")
+
+            # Formato para el título (texto grande y centrado)
+            header_format = workbook.add_format({'bold': True, 'font_size': 20, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9EAD3'})
+            worksheet.merge_range('A1:I1', 'Reporte de Ventas Morochita', header_format)
+
+            # Insertar la imagen a la izquierda de la cabecera
+            try:
+                worksheet.insert_image('A1', 'utils/img/imgExport.png', {'x_scale': 0.2, 'y_scale': 0.1})
+            except Exception as img_err:
+                print(f"Error al insertar imagen: {img_err}")
+
+            # Configurar las cabeceras de las columnas
+            header_cells_format = workbook.add_format({'bold': True, 'bg_color': '#B6D7A8', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+            worksheet.write_row('A3', df.columns, header_cells_format)
+
+            # Formato de las celdas de datos
+            data_cells_format = workbook.add_format({'border': 1, 'text_wrap': True, 'align': 'center', 'valign': 'vcenter'})
+            
+            # Escribir las filas de ventas
+            for i, row in enumerate(rows, start=4):  # Empezar desde la fila 4
+                worksheet.write_row(f'A{i}', row, data_cells_format)
+
+            # Ajustar el alto de las filas para los saltos de línea en el detalle de productos
+            worksheet.set_row(3, None, None, {'text_wrap': True})  # Ajuste para cabecera
+            for i in range(4, len(rows) + 4):
+                worksheet.set_row(i, 30)  # Ajuste de altura para las filas con detalles de productos
+
+            # Ajustar el ancho de las columnas
+            worksheet.set_column('A:A', 20) # Ajuste para la columna de vendedor
+            worksheet.set_column('B:B', 20) # Ajuste para la columna de cliente
+            worksheet.set_column('C:C', 15) # Ajuste para la columna de DNI
+            worksheet.set_column('D:D', 15) # Ajuste para la columna de fecha
+            worksheet.set_column('E:E', 10) # Ajuste para la columna de hora
+            worksheet.set_column('F:F', 15) # Ajuste para la columna de método de pago
+            worksheet.set_column('G:G', 15) # Ajuste para la columna de estado
+            worksheet.set_column('H:H', 10) # Ajuste para la columna de total
+            worksheet.set_column('I:I', 80) # Ajuste para la columna de detalle de productos
 
         print(f"Reporte generado correctamente en: {file_path}")
         return True
     except Exception as e:
         print("Error al crear el archivo Excel: ", e)
         return False
+
+# END REGION
