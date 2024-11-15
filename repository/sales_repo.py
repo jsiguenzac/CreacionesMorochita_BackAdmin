@@ -6,13 +6,14 @@ from models import model_sale as ModelSales
 from models import model_detail_sale as ModelDetailSales
 from models import model_roles_permissions as ModelRolPermiso
 from config.DB.database import get_db
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from schemas.User_Schema import UserSchema
 from utils.methods import EmailServiceEnv, exit_json, long_to_date
 from datetime import datetime
 from sqlalchemy import Date, and_, or_
 from schemas.Sales_Schema import *
 from collections import defaultdict
+from utils.methods import export_sales_report_to_excel
 
 
 async def get_list_sales(body: ParamListSalesSchema, db: Session):
@@ -272,5 +273,138 @@ async def details_sale(id_sale: int, db: Session):
             ) for detail in details
         ]
         return exit_json(1, {"details": details_map})
+    except Exception as ex:
+        return exit_json(0, {"exito": False, "mensaje": str(ex)})
+
+
+async def get_report_sales(body: ParamReportSalesSchema, db: Session):
+    try:
+        date_start = long_to_date(body.date_start)
+        date_end = long_to_date(body.date_end)
+        id_seller = body.id_seller
+        page = body.page
+        page_size = 20
+        offset = (page - 1) * page_size
+        
+        # Validaciones
+        current_date = datetime.now().date()
+        
+        if date_start == -1:
+            date_start = current_date
+        if date_end == -1:
+            date_end = current_date
+
+        if date_end < date_start:
+            return exit_json(0, {"exito": False, "mensaje": "FECHA_FIN_MENOR"})
+                
+        sales_list = db.query(ModelSales.Venta).filter(
+            and_(
+                ModelSales.Venta.Activo,
+                or_(
+                    id_seller == 0,
+                    ModelSales.Venta.IdUsuarioVenta == id_seller
+                ),
+                or_(
+                    date_start == -1,
+                    ModelSales.Venta.FechaHoraVenta.cast(Date) >= date_start
+                ),
+                or_(
+                    date_end == -1,
+                    ModelSales.Venta.FechaHoraVenta.cast(Date) <= date_end
+                )
+            )
+        ).order_by(
+            ModelSales.Venta.IdVenta.desc()
+        ).offset(offset).limit(page_size).all()
+        
+        sales_map = [
+            ListSalesSchema(
+                id_sale=sale.IdVenta,
+                id_seller=sale.IdUsuarioVenta,
+                name_seller=(f'{sale.UsuarioVenta.Nombre} {sale.UsuarioVenta.Apellidos}'),
+                name_client=sale.NombreCliente,
+                dni_client=sale.DNICliente,
+                date_sale=sale.FechaHoraVenta.strftime("%d-%m-%Y %H:%M"),
+                id_payment=sale.IdMetodoPago,
+                name_payment=sale.MetodoPago.Nombre,
+                id_status=sale.IdEstadoVenta,
+                name_status=sale.EstadoVenta.Nombre,
+                total=sale.Total
+            ) for sale in sales_list
+        ]
+        return exit_json(1, {"sales": sales_map})
+    except Exception as ex:
+        return exit_json(0, {"exito": False, "mensaje": str(ex)})
+
+
+async def export_report_sales(body: ParamReportSalesSchema, db: Session):
+    try:
+        date_start = long_to_date(body.date_start)
+        date_end = long_to_date(body.date_end)
+        id_seller = body.id_seller
+        
+        # Validaciones
+        current_date = datetime.now().date()
+        
+        if date_start == -1:
+            date_start = current_date
+        if date_end == -1:
+            date_end = current_date
+
+        if date_end < date_start:
+            return exit_json(0, {"exito": False, "mensaje": "FECHA_FIN_MENOR"})
+                
+        sales_list = db.query(ModelSales.Venta).options(
+            joinedload(ModelSales.Venta.DetalleVenta).joinedload(ModelDetailSales.DetalleVenta.Producto)
+        ).filter(
+            and_(
+                ModelSales.Venta.Activo,
+                or_(
+                    id_seller == 0,
+                    ModelSales.Venta.IdUsuarioVenta == id_seller
+                ),
+                or_(
+                    date_start == -1,
+                    ModelSales.Venta.FechaHoraVenta.cast(Date) >= date_start
+                ),
+                or_(
+                    date_end == -1,
+                    ModelSales.Venta.FechaHoraVenta.cast(Date) <= date_end
+                )
+            )
+        ).order_by(
+            ModelSales.Venta.IdVenta.desc()
+        ).all()
+        
+        sales_map = [
+            ExportReportSalesSchema(
+                name_seller=(f'{sale.UsuarioVenta.Nombre} {sale.UsuarioVenta.Apellidos}'),
+                name_client=sale.NombreCliente,
+                dni_client=sale.DNICliente,
+                date_sale=sale.FechaHoraVenta.strftime("%d-%m-%Y"),
+                hour_sale=sale.FechaHoraVenta.strftime("%H:%M"),
+                name_payment=sale.MetodoPago.Nombre,
+                name_status=sale.EstadoVenta.Nombre,
+                total=sale.Total,
+                products=[
+                    ProductSaleSchema(
+                        id_product=detail.IdProducto,
+                        name_product=detail.Producto.Nombre,
+                        talla=detail.Talla,
+                        price=detail.PrecioVenta,
+                        quantity=detail.Cantidad,
+                        subtotal=detail.SubTotal
+                    ) for detail in sale.DetalleVenta
+                ]
+            ).dict()
+            for sale in sales_list
+        ] if sales_list else []
+        
+        # Exportar reporte a Excel
+        data_exported = export_sales_report_to_excel(sales_map)
+        if not data_exported:
+            return exit_json(0, {"exito": False, "mensaje": "ERROR_EXPORTAR_EXCEL"})
+              
+        return exit_json(1, {"exito": True, "mensaje": "REPORTE_EXPORTADO"})
     except Exception as ex:
         return exit_json(0, {"exito": False, "mensaje": str(ex)})

@@ -50,3 +50,20 @@ class DetailSalesSchema(BaseModel):
     name_status: str
     total: float """
     products: List[ProductSaleSchema]
+
+class ParamReportSalesSchema(BaseModel):
+    page: int = 1
+    date_start: int = -1
+    date_end: int = -1
+    id_seller: int = 0
+    
+class ExportReportSalesSchema(BaseModel):
+    name_seller: str
+    name_client: str
+    dni_client: Optional[int] = None
+    date_sale: str
+    hour_sale: str
+    name_payment: str
+    name_status: str
+    total: float
+    products: List[ProductSaleSchema]

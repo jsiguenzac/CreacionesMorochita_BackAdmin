@@ -52,3 +52,21 @@ async def get_sale_detail(id_sale: int, db: Session = Depends(get_db)):
         return await details_sale(id_sale, db)
     except Exception as e:
         return exit_json(0, str(e))
+
+@router.post("/Report", status_code=status.HTTP_200_OK)
+async def get_sales_report(body: ParamReportSalesSchema, db: Session = Depends(get_db)):
+    try:
+        if current_user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
+        return await get_report_sales(body, db)
+    except Exception as e:
+        return exit_json(0, str(e))
+
+@router.post("/Report/Export", status_code=status.HTTP_200_OK)
+async def export_sales_report(body: ParamReportSalesSchema, db: Session = Depends(get_db)):
+    try:
+        if current_user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
+        return await export_report_sales(body, db)
+    except Exception as e:
+        return exit_json(0, str(e))

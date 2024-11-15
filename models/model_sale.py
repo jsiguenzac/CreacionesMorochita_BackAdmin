@@ -25,6 +25,7 @@ class Venta(Base):
     UsuarioVenta = relationship("Usuario", backref=backref(__tablename__, lazy=True))
     EstadoVenta = relationship("EstadoVenta", backref=backref(__tablename__, lazy=True))
     MetodoPago = relationship("MetodoPago", backref=backref(__tablename__, lazy=True))
+    DetalleVenta = relationship("DetalleVenta", backref=backref(__tablename__, lazy=True))
     
     def __repr__(self):
         return f"<Venta(IdVenta={self.IdVenta}, IdEstadoVenta={self.IdEstadoVenta}, IdMetodoPago={self.IdMetodoPago}, Activo={self.Activo})>"

@@ -77,3 +77,62 @@ def long_to_date(timestamp: int):
     dt_utc = datetime.fromtimestamp(timestamp_sec, tz=timezone.utc)
     return dt_utc.date()
 # END REGION
+
+# REGION: Método para exportar reporte de ventas a Excel
+import pandas as pd
+import datetime
+import os
+from typing import List
+
+def export_sales_report_to_excel(sales: List[dict]):
+    try:
+        # Crear un archivo Excel en el escritorio del usuario.
+        desktop_location = os.path.join(os.path.expanduser('~'), 'Desktop')
+        date_time_current = datetime.datetime.now().strftime("%d-%m-%Y %H-%M-%S")
+        name_file = f'Reporte_Ventas_{date_time_current}.xlsx'
+        file_path = os.path.join(desktop_location, name_file)
+        print("file_path:", file_path)
+        
+        # Crear un DataFrame vacío con las columnas requeridas.
+        columns = [
+            "Vendedor", "Cliente", "DNI Cliente", "Fecha Venta", 
+            "Hora Venta", "Método de Pago", "Estado Venta", 
+            "Total", "Detalle de Productos"
+        ]
+        df = pd.DataFrame(columns=columns)
+
+        # Llenar el DataFrame con los datos de ventas.
+        for sale in sales:
+            # Concatenar detalles de productos en un solo string.
+            products_details = '\n'.join(',',[
+                f"Producto: {product['name_product']}, "
+                f"Talla: {product['talla']}, Precio: {product['price']}, "
+                f"Cantidad: {product['quantity']}, Subtotal: {product['subtotal']}"
+                for product in sale["products"]
+            ])
+            
+            # Crear una fila con los datos de la venta.
+            row = {
+                "Vendedor": sale["name_seller"],
+                "Cliente": sale["name_client"],
+                "DNI Cliente": sale.get("dni_client", "N/A"),
+                "Fecha Venta": sale["date_sale"],
+                "Hora Venta": sale["hour_sale"],
+                "Método de Pago": sale["name_payment"],
+                "Estado Venta": sale["name_status"],
+                "Total": sale["total"],
+                "Detalle de Productos": products_details
+            }
+            
+            # Agregar la fila al DataFrame.
+            df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+        
+        # Crear el archivo Excel y guardar el DataFrame.
+        with pd.ExcelWriter(file_path, engine='xlsxwriter') as excel_writer:
+            df.to_excel(excel_writer, index=False, sheet_name="Reporte de Ventas")
+
+        print(f"Reporte generado correctamente en: {file_path}")
+        return True
+    except Exception as e:
+        print("Error al crear el archivo Excel: ", e)
+        return False
