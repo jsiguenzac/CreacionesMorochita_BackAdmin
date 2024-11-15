@@ -80,23 +80,17 @@ def long_to_date(timestamp: int):
 
 # REGION: Método para exportar reporte de ventas a Excel
 import pandas as pd
+from io import BytesIO
 import datetime
 import os
 from typing import List
 
 def export_sales_report_to_excel(sales: List[dict]):
     try:
-        # Crear un archivo Excel en el escritorio del usuario.
-        desktop_location = os.path.join(os.path.expanduser('~'), 'Desktop')
-        date_time_current = datetime.datetime.now().strftime("%d-%m-%Y %H-%M-%S")
-        name_file = f'Reporte_Ventas_{date_time_current}.xlsx'
-        file_path = os.path.join(desktop_location, name_file)
-        print("file_path:", file_path)
-        
-        # Crear un DataFrame vacío con las columnas requeridas.
+        # Crear un DataFrame vacío con las columnas requeridas
         columns = [
-            "Vendedor", "Cliente", "DNI Cliente", "Fecha Venta", 
-            "Hora Venta", "Método de Pago", "Estado Venta", 
+            "Vendedor", "Cliente", "DNI Cliente", "Fecha Venta",
+            "Hora Venta", "Método de Pago", "Estado Venta",
             "Total", "Detalle de Productos"
         ]
         df = pd.DataFrame(columns=columns)
@@ -105,14 +99,15 @@ def export_sales_report_to_excel(sales: List[dict]):
         rows = []
         for sale in sales:
             # Concatenar detalles de productos en un solo string con saltos de línea
-            products_details = '\n'.join([
-                f"Producto: {product['name_product']} / "
+            products_details = '\n'.join(
+                [f"Producto: {product['name_product']} / "
                 f"Talla: {product['talla']} / Precio: {product['price']} / "
                 f"Cantidad: {product['quantity']} / Subtotal: {product['subtotal']}"
                 for product in sale["products"]
-            ])
+                ]
+            )
             
-            # Crear una fila con los datos de la venta.
+            # Crear una fila con los datos de la venta
             row = [
                 sale["name_seller"],
                 sale["name_client"],
@@ -126,8 +121,10 @@ def export_sales_report_to_excel(sales: List[dict]):
             ]
             rows.append(row)
         
-        # Crear el archivo Excel y guardar el DataFrame.
-        with pd.ExcelWriter(file_path, engine='xlsxwriter') as excel_writer:
+        # Crear el archivo Excel en memoria (en lugar de en el disco)
+        output = BytesIO()
+        
+        with pd.ExcelWriter(output, engine='xlsxwriter') as excel_writer:
             # Escribir el DataFrame vacío para la estructura inicial
             df.to_excel(excel_writer, index=False, sheet_name="Reporte de Ventas")
 
@@ -138,12 +135,6 @@ def export_sales_report_to_excel(sales: List[dict]):
             # Formato para el título (texto grande y centrado)
             header_format = workbook.add_format({'bold': True, 'font_size': 20, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9EAD3'})
             worksheet.merge_range('A1:I1', 'Reporte de Ventas Morochita', header_format)
-
-            # Insertar la imagen a la izquierda de la cabecera
-            try:
-                worksheet.insert_image('A1', 'utils/img/imgExport.png', {'x_scale': 0.2, 'y_scale': 0.1})
-            except Exception as img_err:
-                print(f"Error al insertar imagen: {img_err}")
 
             # Configurar las cabeceras de las columnas
             header_cells_format = workbook.add_format({'bold': True, 'bg_color': '#B6D7A8', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
@@ -171,11 +162,15 @@ def export_sales_report_to_excel(sales: List[dict]):
             worksheet.set_column('G:G', 15) # Ajuste para la columna de estado
             worksheet.set_column('H:H', 10) # Ajuste para la columna de total
             worksheet.set_column('I:I', 80) # Ajuste para la columna de detalle de productos
-
-        print(f"Reporte generado correctamente en: {file_path}")
-        return True
+        
+        # Movemos el puntero de BytesIO al inicio
+        output.seek(0)
+        
+        date_time_current = datetime.datetime.now().strftime("%d-%m-%Y %H-%M-%S")
+        name_file = f'Reporte_Ventas_{date_time_current}.xlsx'
+        # Devolver el archivo Excel generado como una respuesta de StreamingResponse
+        return (output, name_file)
     except Exception as e:
-        print("Error al crear el archivo Excel: ", e)
-        return False
-
+        print("Error al crear el archivo Excel:", e)
+        return (None, None)
 # END REGION

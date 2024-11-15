@@ -375,6 +375,9 @@ async def export_report_sales(body: ParamReportSalesSchema, db: Session):
         ).order_by(
             ModelSales.Venta.IdVenta.desc()
         ).all()
+          
+        if not sales_list:
+            return exit_json(0, {"exito": False, "mensaje": "NO_HAY_VENTAS"})
         
         sales_map = [
             ExportReportSalesSchema(
@@ -398,13 +401,18 @@ async def export_report_sales(body: ParamReportSalesSchema, db: Session):
                 ]
             ).dict()
             for sale in sales_list
-        ] if sales_list else []
+        ]
         
         # Exportar reporte a Excel
-        data_exported = export_sales_report_to_excel(sales_map)
+        data_exported, name_file = export_sales_report_to_excel(sales_map)
         if not data_exported:
             return exit_json(0, {"exito": False, "mensaje": "ERROR_EXPORTAR_EXCEL"})
-              
-        return exit_json(1, {"exito": True, "mensaje": "REPORTE_EXPORTADO"})
+        
+        return exit_json(1, {
+            "exito": True,
+            "mensaje": "REPORTE_EXPORTADO",
+            "data_export": data_exported,
+            "name_file": name_file
+        })
     except Exception as ex:
         return exit_json(0, {"exito": False, "mensaje": str(ex)})

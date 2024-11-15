@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from routes.auth_api import current_user
 from repository.sales_repo import *
 
@@ -67,6 +68,19 @@ async def export_sales_report(body: ParamReportSalesSchema, db: Session = Depend
     try:
         if current_user is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
-        return await export_report_sales(body, db)
+        result = await export_report_sales(body, db)
+        if result.state == 0:
+            return exit_json(0, { "exito": False, "mensaje": "NO_EXPORTADO" })
+        
+        filename = result.data["name_file"]
+        if not filename.endswith(".xlsx"):
+            filename += ".xlsx"
+        return StreamingResponse(
+            result.data["data_export"],
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+            }
+        )
     except Exception as e:
         return exit_json(0, str(e))
