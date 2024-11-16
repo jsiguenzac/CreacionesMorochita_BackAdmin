@@ -5,6 +5,7 @@ passlib[bcrypt]
 python-multipart
 sqlalchemy
 psycopg2
+psycopg2-binary
 pandas
 xlsxwriter
 
