@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 # REGION: Formato JSON para salida de todos los endpoints
 from schemas.exit_api.BaseOut import BaseM, Salida
 
@@ -66,22 +68,23 @@ def EmailServiceEnv():
 # END REGION
 
 # REGION: Método para convertir long a datetime UTC
-from datetime import datetime, timezone
-
 def long_to_date(timestamp: int):
-    if timestamp == -1:
-        return timestamp
-    # Convertir timestamp (milisegundos) a segundos
-    timestamp_sec = timestamp / 1000
-    # Convertir a datetime en UTC
-    dt_utc = datetime.fromtimestamp(timestamp_sec, tz=timezone.utc)
-    return dt_utc.date()
+    try:
+        if timestamp == -1:
+            return timestamp
+        # Convertir timestamp (milisegundos) a segundos
+        timestamp_sec = timestamp / 1000
+        # Convertir a datetime en UTC
+        dt_utc = datetime.fromtimestamp(timestamp_sec, tz=timezone.utc)
+        return dt_utc.date()
+    except Exception as e:
+        print("Error al convertir timestamp a fecha:", e)
+        return -1
 # END REGION
 
 # REGION: Método para exportar reporte de ventas a Excel
 import pandas as pd
 from io import BytesIO
-import datetime
 import os
 from typing import List
 
@@ -166,7 +169,7 @@ def export_sales_report_to_excel(sales: List[dict]):
         # Movemos el puntero de BytesIO al inicio
         output.seek(0)
         
-        date_time_current = datetime.datetime.now().strftime("%d-%m-%Y %H-%M-%S")
+        date_time_current = datetime.now().strftime("%d-%m-%Y %H-%M-%S")
         name_file = f'Reporte_Ventas_{date_time_current}.xlsx'
         # Devolver el archivo Excel generado como una respuesta de StreamingResponse
         return (output, name_file)

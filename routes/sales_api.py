@@ -70,7 +70,7 @@ async def export_sales_report(body: ParamReportSalesSchema, db: Session = Depend
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
         result = await export_report_sales(body, db)
         if result.state == 0:
-            return exit_json(0, { "exito": False, "mensaje": "NO_EXPORTADO" })
+            return result
         
         filename = result.data["name_file"]
         if not filename.endswith(".xlsx"):

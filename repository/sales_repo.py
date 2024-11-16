@@ -342,7 +342,6 @@ async def export_report_sales(body: ParamReportSalesSchema, db: Session):
         date_start = long_to_date(body.date_start)
         date_end = long_to_date(body.date_end)
         id_seller = body.id_seller
-        
         # Validaciones
         current_date = datetime.now().date()
         
@@ -350,8 +349,9 @@ async def export_report_sales(body: ParamReportSalesSchema, db: Session):
             date_start = current_date
         if date_end == -1:
             date_end = current_date
-
-        if date_end < date_start:
+        
+        isDateEndLower = date_end < date_start
+        if isDateEndLower:
             return exit_json(0, {"exito": False, "mensaje": "FECHA_FIN_MENOR"})
                 
         sales_list = db.query(ModelSales.Venta).options(
@@ -375,8 +375,8 @@ async def export_report_sales(body: ParamReportSalesSchema, db: Session):
         ).order_by(
             ModelSales.Venta.IdVenta.desc()
         ).all()
-          
-        if not sales_list:
+        
+        if len(sales_list) <= 0:
             return exit_json(0, {"exito": False, "mensaje": "NO_HAY_VENTAS"})
         
         sales_map = [
@@ -403,6 +403,7 @@ async def export_report_sales(body: ParamReportSalesSchema, db: Session):
             for sale in sales_list
         ]
         
+        print("data_sales_map", sales_map)
         # Exportar reporte a Excel
         data_exported, name_file = export_sales_report_to_excel(sales_map)
         if not data_exported:
