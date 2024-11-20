@@ -124,6 +124,8 @@ async def validate_stock(products: list, db: Session):
 
 async def add_sale(body: ParamAddUpdateSale, user_creation: UserSchema, db: Session):
     try:
+        if body.id_status == 3: #Anulado
+            return exit_json(0, {"exito": False, "mensaje": "No puede registrar una venta anulada"})
         # Validación de productos
         if not body.products:
             return exit_json(0, {"exito": False, "mensaje": "NO_HAY_PRODUCTOS"})
@@ -150,6 +152,7 @@ async def add_sale(body: ParamAddUpdateSale, user_creation: UserSchema, db: Sess
         db.commit()
         db.refresh(new_sale)
 
+        product_quantities = {}
         # Registro de detalles de la venta
         for product in body.products:
             detail_sale = ModelDetailSales.DetalleVenta(
@@ -164,7 +167,29 @@ async def add_sale(body: ParamAddUpdateSale, user_creation: UserSchema, db: Sess
                 UsuarioCreacion=u_creation
             )
             db.add(detail_sale)
+            
+            # Acumulamos las cantidades y nombres de productos con el mismo id_product
+            if product.id_product in product_quantities:
+                product_quantities[product.id_product]['quantity'] += product.quantity
+            else:
+                product_quantities[product.id_product] = {
+                    'quantity': product.quantity,
+                    'name': product.name_product
+                }
         
+        # Ahora actualizamos el stock de cada producto basado en las cantidades acumuladas
+        for product_id, product_info in product_quantities.items():
+            product_in_stock = db.query(ModelProducts.Productos).filter_by(IdProducto=product_id).first()
+            if product_in_stock:
+                # Reducir el stock según la cantidad vendida
+                new_stock = product_in_stock.Stock - product_info['quantity']
+                if new_stock < 0:
+                    raise ValueError(f"No hay suficiente stock para el producto {product_info['name']}")
+                product_in_stock.Stock = new_stock
+            else:
+                raise ValueError(f"El producto {product_info['name']} no fue encontrado en el inventario")
+        
+        # Confirmar cambios en la base de datos        
         db.commit()        
         return exit_json(1, {"exito": True, "mensaje": "VENTA_REGISTRADA", "id_sale": new_sale.IdVenta})    
     except Exception as ex:
@@ -188,6 +213,135 @@ async def update_sale(body: ParamAddUpdateSale, user_update: UserSchema, db: Ses
         if not find_sale:
             return exit_json(0, {"exito": False, "mensaje": "VENTA_NO_ENCONTRADA"})
 
+        # Manejo del stock según el id_status y los cambios en los productos
+        previous_status = find_sale.IdEstadoVenta
+        
+        # Obtener detalles actuales de la venta
+        existing_details_active = db.query(ModelDetailSales.DetalleVenta).filter(
+            and_(
+                ModelDetailSales.DetalleVenta.Activo,
+                ModelDetailSales.DetalleVenta.IdVenta == body.id_sale
+            )
+        ).all()
+        
+        # Agrupar por producto para manejar cantidades duplicadas en la base de datos
+        product_totals = {}
+        for detail in existing_details_active:
+            if detail.IdProducto not in product_totals:
+                product_totals[detail.IdProducto] = {
+                    "cantidad": detail.Cantidad,
+                    "nombre": detail.Producto.Nombre
+                }
+            else:
+                product_totals[detail.IdProducto]["cantidad"] += detail.Cantidad
+        
+        # Agrupar los productos enviados en el body para comparación
+        incoming_product_totals = {}
+        for product in body.products:
+            if product.id_product not in incoming_product_totals:
+                incoming_product_totals[product.id_product] = {
+                    "cantidad": product.quantity,
+                    "nombre": "Producto",
+                }
+            else:
+                incoming_product_totals[product.id_product]["cantidad"] += product.quantity
+        
+        # Manejo de cambios en los productos (agregar, eliminar, actualizar cantidades)
+        for product_id, existing_data in product_totals.items():
+            existing_quantity = existing_data["cantidad"]
+            product_name = existing_data["nombre"]
+
+            product_in_stock = db.query(ModelProducts.Productos).filter_by(
+                IdProducto=product_id
+            ).first()
+
+            if not product_in_stock:
+                return exit_json(0, {
+                        "exito": False,
+                        "mensaje": f"El producto '{product_name}' no fue encontrado en el inventario",
+                    },
+                )
+
+            # Verificar si el producto fue eliminado
+            if product_id not in incoming_product_totals:
+                # Reponer la cantidad eliminada al inventario
+                if body.id_status != 3:  # Solo si no es una venta anulada
+                    product_in_stock.Stock += existing_quantity
+            else:
+                # Verificar si la cantidad fue reducida
+                incoming_quantity = incoming_product_totals[product_id]["cantidad"]
+                if incoming_quantity < existing_quantity:
+                    difference = existing_quantity - incoming_quantity
+                    if body.id_status != 3:  # Solo reponer si no es una venta anulada
+                        product_in_stock.Stock += difference
+                elif incoming_quantity > existing_quantity:
+                    # Verificar si la cantidad fue aumentada y ajustar el stock
+                    difference = incoming_quantity - existing_quantity
+                    new_stock = product_in_stock.Stock - difference
+                    if new_stock < 0:
+                        return exit_json(
+                            0,
+                            {
+                                "exito": False,
+                                "mensaje": f"No hay suficiente stock para el producto '{product_name}'"
+                            },
+                        )
+                    product_in_stock.Stock = new_stock
+        
+        
+        # Verificar productos nuevos en el listado enviado
+        for product_id, incoming_data in incoming_product_totals.items():
+            if product_id not in product_totals:
+                incoming_quantity = incoming_data["cantidad"]
+                product_name = incoming_data["nombre"]
+
+                product_in_stock = db.query(ModelProducts.Productos).filter_by(
+                    IdProducto=product_id
+                ).first()
+
+                if not product_in_stock:
+                    return exit_json(0, {
+                            "exito": False,
+                            "mensaje": "PRODUCTO_NO_ENCONTRADO",
+                            "product": product_id
+                        },
+                    )
+
+                # Reducir stock para el producto nuevo
+                new_stock = product_in_stock.Stock - incoming_quantity
+                if new_stock < 0:
+                    return exit_json(0, {
+                            "exito": False,
+                            "mensaje": "STOCK_INSUFICIENTE",
+                            "product": product_id
+                        },
+                    )
+                product_in_stock.Stock = new_stock
+        
+             
+        # Reponer o ajustar stock según el cambio de estado
+        if previous_status != body.id_status:
+            for product_id, data in product_totals.items():
+                total_quantity = data["cantidad"]
+                product_name = data["nombre"]
+
+                product_in_stock = db.query(ModelProducts.Productos).filter_by(
+                    IdProducto=product_id
+                ).first()
+
+                if not product_in_stock:
+                    return exit_json(
+                        0,
+                        {
+                            "exito": False,
+                            "mensaje": f"El producto '{product_name}' no fue encontrado en el inventario",
+                        },
+                    )
+
+                if body.id_status == 3:  # Venta anulada / Reponer stock
+                    product_in_stock.Stock += total_quantity
+                
+                
         # Actualizar venta
         find_sale.NombreCliente = body.name_client
         find_sale.DNICliente = body.dni_client
@@ -417,3 +571,5 @@ async def export_report_sales(body: ParamReportSalesSchema, db: Session):
         })
     except Exception as ex:
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
+
+
