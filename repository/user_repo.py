@@ -17,6 +17,7 @@ from schemas.User_Schema import (
     UserSchema,
     UserUpdate,
 )
+import locale
 
 # db: Session = Depends(get_db)
 
@@ -470,3 +471,59 @@ async def details_dashboard_by_user(user: UserSchema, db: Session):
         })
     except Exception as ex:
         return exit_json(0, {"mensaje": str(ex)})
+
+
+async def profile_user(user: UserSchema, db: Session):
+    try:
+        id_user_current = user["id_user"]        
+        # Fecha de inicio del mes actual
+        start_of_month = datetime.now().replace(day=1)
+        # Cantidad de ventas del mes actual
+        ventas_month_current = db.query(
+            func.count(ModelSale.Venta.IdVenta)
+        ).filter(
+            ModelSale.Venta.Activo,
+            ModelSale.Venta.IdUsuarioVenta == id_user_current,
+            ModelSale.Venta.FechaHoraVenta >= start_of_month
+        ).scalar() or 0  # .scalar() para obtener directamente el valor, y default a 0
+        # Ventas por estado en el mes actual
+        ventas_estado = db.query(
+            ModelSale.Venta.IdEstadoVenta,
+            func.count(ModelSale.Venta.IdVenta)
+        ).filter(
+            ModelSale.Venta.Activo,
+            ModelSale.Venta.IdUsuarioVenta == id_user_current,
+            ModelSale.Venta.FechaHoraVenta >= start_of_month
+        ).group_by(ModelSale.Venta.IdEstadoVenta).all()
+        # Inicializar contadores de ventas por estado
+        ventas_por_estado = {
+            "pending": 0,
+            "complete": 0,
+            "annul": 0
+        }
+        # Procesar resultados para asignar cantidades por estado
+        for estado, cantidad in ventas_estado:
+            if estado == 1:
+                ventas_por_estado["pending"] = cantidad or 0
+            elif estado == 2:
+                ventas_por_estado["complete"] = cantidad or 0
+            elif estado == 3:
+                ventas_por_estado["annul"] = cantidad or 0
+        # Configurar el idioma para obtener el nombre del mes en español
+        try:
+            locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')  # Español (España)
+        except locale.Error:
+            locale.setlocale(locale.LC_TIME, 'es_PE.UTF-8')  # Español (Perú, como alternativa)        
+        # Obtener el nombre del mes en español y capitalizarlo
+        name_month_current = start_of_month.strftime("%B").capitalize()
+        # Construir respuesta
+        return exit_json(1, {
+            "sales_by_user": {
+                "sales_month_current": ventas_month_current,
+                "name_month_current": name_month_current,
+                "sales_status": ventas_por_estado
+            }
+        })
+    except Exception as e:
+        return exit_json(0, f"Error en profile_user: {str(e)}")
+
