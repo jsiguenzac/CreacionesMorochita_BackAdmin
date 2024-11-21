@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+*.log
+*.txt
+data/
+__pycache__
+.pytest_cache
+fastapi-env
+.vscode
