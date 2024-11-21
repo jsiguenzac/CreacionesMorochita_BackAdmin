@@ -3,4 +3,3 @@ __pycache__
 fastapi-env
 .vscode
 .env
-.vercel
