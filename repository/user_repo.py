@@ -17,6 +17,7 @@ from schemas.User_Schema import (
     UserSchema,
     UserUpdate,
 )
+from babel.dates import format_date
 import locale
 
 # db: Session = Depends(get_db)
@@ -513,9 +514,14 @@ async def profile_user(user: UserSchema, db: Session):
         try:
             locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')  # Español (España)
         except locale.Error:
-            locale.setlocale(locale.LC_TIME, 'es_PE.UTF-8')  # Español (Perú, como alternativa)        
+            try:
+                locale.setlocale(locale.LC_TIME, 'es_PE.UTF-8')  # Español (Perú, como alternativa)
+            except locale.Error:
+                # Si no se puede configurar el español, usar 'C' como fallback
+                locale.setlocale(locale.LC_TIME, 'C')
+        
         # Obtener el nombre del mes en español y capitalizarlo
-        name_month_current = start_of_month.strftime("%B").capitalize()
+        name_month_current = format_date(start_of_month, "MMMM", locale='es_ES').capitalize()
         # Construir respuesta
         return exit_json(1, {
             "sales_by_user": {

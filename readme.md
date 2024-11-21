@@ -77,3 +77,10 @@ Ejecutar Test
 ```sh
 pytest -s
 ```
+
+Generar archivo requirements
+-------------
+
+```sh
+pip freeze > requirements.txt
+```
