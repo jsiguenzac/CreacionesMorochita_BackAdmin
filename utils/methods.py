@@ -224,70 +224,113 @@ def export_sales_report_to_excel(sales: List[dict]):
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.platypus import Table, TableStyle
 
-def generate_sales_receipt_pdf(sale: Dict, logo_path: str):
+def generate_sales_receipt_pdf(sale: dict, logo_path: str):
     try:
-        # Crear el archivo PDF en memoria
-        output = BytesIO()
-        pdf = canvas.Canvas(output, pagesize=letter)
-        pdf.setTitle("Boleta de Venta")
-        
-        # Dimensiones de la página
+        # Crear un buffer en memoria para el archivo PDF
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=letter)
+
+        # Configuración de dimensiones
         width, height = letter
+        margin = 3 * cm
         
-        # Dibujar el logotipo
-        if logo_path and os.path.exists(logo_path):
-            pdf.drawImage(logo_path, x=40, y=height - 100, width=100, height=100, mask='auto')
+        # Añadir fondo (color claro)
+        pdf.setFillColorRGB(0.95, 0.95, 0.95)  # Fondo gris claro
+        pdf.rect(0, 0, width, height, fill=True, stroke=False)
         
+        # Añadir el logo centrado
+        logo_width = 8 * cm
+        logo_height = 5 * cm
+
+        # Calcular la posición x para centrar el logo
+        logo_x_position = (width - logo_width) / 2
+        logo_y_position = height - logo_height - margin  # Mantiene la posición vertical
+
+        pdf.drawImage(logo_path, logo_x_position, logo_y_position, width=logo_width, height=logo_height, preserveAspectRatio=True)
+
         # Título de la boleta
-        pdf.setFont("Helvetica-Bold", 16)
-        pdf.drawString(200, height - 50, "Boleta de Venta")
-        
-        # Información del vendedor y cliente
+        pdf.setFont("Courier-Bold", 18)
+        pdf.setFillColor(colors.darkblue)
+        pdf.drawCentredString(width / 2, height - margin - logo_height - 1.5 * cm, "Creaciones Morochita")
+        pdf.drawCentredString(width / 2, height - margin - logo_height - 2.5 * cm, "Boleta de Venta")
+
+        # Datos de la venta en dos columnas
         pdf.setFont("Helvetica", 12)
-        pdf.drawString(40, height - 130, f"Vendedor: {sale['name_seller']}")
-        pdf.drawString(40, height - 150, f"Cliente: {sale['name_client']}")
-        pdf.drawString(40, height - 170, f"DNI Cliente: {sale.get('dni_client', 'N/A')}")
-        pdf.drawString(40, height - 190, f"Fecha: {sale['date_sale']}")
-        pdf.drawString(40, height - 210, f"Hora: {sale['hour_sale']}")
+        data_left = [
+            f"Vendedor: {sale['name_seller']}",
+            f"Cliente: {sale['name_client']}",
+            f"DNI Cliente: {sale.get('dni_client', 'N/A') if sale['dni_client'] else 'N/A'}",
+        ]
+        data_right = [
+            f"Fecha: {sale['date_sale']}",
+            f"Hora: {sale['hour_sale']}",
+            f"Método de Pago: {sale['name_payment']}",
+        ]
         
-        # Dibujar encabezado de productos
-        pdf.setFont("Helvetica-Bold", 10)
-        y_position = height - 250
-        pdf.drawString(40, y_position, "Producto")
-        pdf.drawString(200, y_position, "Talla")
-        pdf.drawString(250, y_position, "Cantidad")
-        pdf.drawString(320, y_position, "Subtotal")
+        x_left = margin
+        x_right = width / 2
+        y = height - logo_height - margin - 4.5 * cm
+        line_spacing = 18
+
+        for line in data_left:
+            pdf.drawString(x_left, y, line)
+            y -= line_spacing
         
-        # Dibujar detalles de productos
-        pdf.setFont("Helvetica", 10)
-        y_position -= 20
-        for product in sale['products']:
-            pdf.drawString(40, y_position, product['name_product'])
-            pdf.drawString(200, y_position, str(product['talla']))
-            pdf.drawString(250, y_position, str(product['quantity']))
-            pdf.drawString(320, y_position, f"S/ {product['subtotal']:.2f}")
-            y_position -= 20
-            if y_position < 50:  # Salto de página si se llena
-                pdf.showPage()
-                pdf.setFont("Helvetica", 10)
-                y_position = height - 50
-        
-        # Total de la venta
-        y_position -= 30
+        y = height - logo_height - margin - 4.5 * cm
+        for line in data_right:
+            pdf.drawString(x_right, y, line)
+            y -= line_spacing
+
+        # Detalle de productos
+        # Crear y configurar la tabla
+        table_data = [["Producto", "Talla", "Cantidad", "Subtotal"]]
+        for product in sale["products"]:
+            table_data.append([
+                product["name_product"],
+                str(product["talla"]),
+                str(product["quantity"]),
+                f"S/ {product['subtotal']:.2f}"
+            ])
+
+        table = Table(table_data, colWidths=[8 * cm, 2 * cm, 2 * cm, 3 * cm])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.purple),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ]))
+
+        # Obtener las dimensiones de la tabla
+        table_width, table_height = table.wrapOn(pdf, width, height)
+
+        # Dibujar la tabla en la posición calculada
+        table_y_position = y - table_height - 40  # Ajusta este valor para bajar la tabla
+        table.drawOn(pdf, margin, table_y_position)
+
+        # Total de la venta alineado a la derecha
+        total_text = f"Total: S/ {sale['total']:.2f}"
         pdf.setFont("Helvetica-Bold", 12)
-        pdf.drawString(40, y_position, f"Total Venta: S/ {sale['total']:.2f}")
-        
-        # Finalizar y guardar el archivo PDF
+
+        # Posición dinámica debajo de la tabla
+        total_y_position = table_y_position - 20  # Ajusta para separar el total de la tabla
+        pdf.drawRightString(width - margin, total_y_position, total_text)
+
+        # Guardar el PDF
         pdf.save()
-        output.seek(0)
-        
-        # Nombrar el archivo
+        buffer.seek(0)
+
+        # Nombre del archivo
         date_time_current = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
         file_name = f"Boleta_Venta_{date_time_current}.pdf"
-        
-        return (output, file_name)
+        return buffer, file_name
     except Exception as e:
-        print("Error al generar la boleta de venta en PDF:", e)
-        return (None, None)
+        print("Error al generar el PDF:", e)
+        return None, None
 # END REGION

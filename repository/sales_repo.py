@@ -14,7 +14,7 @@ from utils.methods import get_peru_date, get_peru_datetime
 from sqlalchemy import Date, and_, or_
 from schemas.Sales_Schema import *
 from collections import defaultdict
-from utils.methods import export_sales_report_to_excel
+from utils.methods import export_sales_report_to_excel, generate_sales_receipt_pdf
 
 
 async def get_list_sales(body: ParamListSalesSchema, db: Session):
@@ -580,6 +580,57 @@ async def export_report_sales(body: ParamReportSalesSchema, db: Session):
         return exit_json(1, {
             "exito": True,
             "mensaje": "REPORTE_EXPORTADO",
+            "data_export": data_exported,
+            "name_file": name_file
+        })
+    except Exception as ex:
+        return exit_json(0, {"exito": False, "mensaje": str(ex)})
+
+
+async def generate_boleta_sale(id_sale: int, db: Session):
+    try:                
+        find_sales = db.query(ModelSales.Venta).options(
+            joinedload(ModelSales.Venta.DetalleVenta).joinedload(ModelDetailSales.DetalleVenta.Producto)
+        ).filter(
+            and_(
+                ModelSales.Venta.Activo,
+                ModelSales.Venta.IdVenta == id_sale
+            )
+        ).first()
+        
+        if not find_sales:
+            return exit_json(0, {"exito": False, "mensaje": "NO_HAY_VENTA"})
+        
+        sale_map = ExportReportSalesSchema(
+                name_seller=(f'{find_sales.UsuarioVenta.Nombre} {find_sales.UsuarioVenta.Apellidos}'),
+                name_client=find_sales.NombreCliente,
+                dni_client=find_sales.DNICliente,
+                date_sale=find_sales.FechaHoraVenta.strftime("%d-%m-%Y"),
+                hour_sale=find_sales.FechaHoraVenta.strftime("%H:%M"),
+                name_payment=find_sales.MetodoPago.Nombre,
+                name_status=find_sales.EstadoVenta.Nombre,
+                total=find_sales.Total,
+                products=[
+                    ProductSaleSchema(
+                        id_product=detail.IdProducto,
+                        name_product=detail.Producto.Nombre,
+                        talla=detail.Talla,
+                        price=detail.PrecioVenta,
+                        quantity=detail.Cantidad,
+                        subtotal=detail.SubTotal
+                    ) for detail in find_sales.DetalleVenta
+                ]
+            ).dict()        
+        print("data_sales_map", sale_map)
+        logo = "static/img/logo.jpg"
+        # Generar boleta en PDF
+        data_exported, name_file = generate_sales_receipt_pdf(sale_map, logo)
+        if not data_exported:
+            return exit_json(0, {"exito": False, "mensaje": "ERROR_GENERAR_BOLETA"})
+        
+        return exit_json(1, {
+            "exito": True,
+            "mensaje": "BOLETA_GENERADA",
             "data_export": data_exported,
             "name_file": name_file
         })

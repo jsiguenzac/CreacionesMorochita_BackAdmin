@@ -84,3 +84,26 @@ async def export_sales_report(body: ParamReportSalesSchema, db: Session = Depend
         )
     except Exception as e:
         return exit_json(0, str(e))
+
+
+@router.post("/Boleta/Generate/{id_sale}", status_code=status.HTTP_200_OK)
+async def export_sales_report(id_sale: int, db: Session = Depends(get_db)):
+    try:
+        if current_user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
+        result = await generate_boleta_sale(id_sale, db)
+        if result.state == 0:
+            return result
+        
+        filename = result.data["name_file"]
+        if not filename.endswith(".xlsx"):
+            filename += ".xlsx"
+        return StreamingResponse(
+            result.data["data_export"],
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+            }
+        )
+    except Exception as e:
+        return exit_json(0, str(e))
