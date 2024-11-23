@@ -128,7 +128,7 @@ def get_peru_time():
 import pandas as pd
 from io import BytesIO
 import os
-from typing import List
+from typing import List, Dict
 
 def export_sales_report_to_excel(sales: List[dict]):
     try:
@@ -217,5 +217,77 @@ def export_sales_report_to_excel(sales: List[dict]):
         return (output, name_file)
     except Exception as e:
         print("Error al crear el archivo Excel:", e)
+        return (None, None)
+# END REGION
+
+# REGION: Método para generar boleta de venta en PDF
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+
+def generate_sales_receipt_pdf(sale: Dict, logo_path: str):
+    try:
+        # Crear el archivo PDF en memoria
+        output = BytesIO()
+        pdf = canvas.Canvas(output, pagesize=letter)
+        pdf.setTitle("Boleta de Venta")
+        
+        # Dimensiones de la página
+        width, height = letter
+        
+        # Dibujar el logotipo
+        if logo_path and os.path.exists(logo_path):
+            pdf.drawImage(logo_path, x=40, y=height - 100, width=100, height=100, mask='auto')
+        
+        # Título de la boleta
+        pdf.setFont("Helvetica-Bold", 16)
+        pdf.drawString(200, height - 50, "Boleta de Venta")
+        
+        # Información del vendedor y cliente
+        pdf.setFont("Helvetica", 12)
+        pdf.drawString(40, height - 130, f"Vendedor: {sale['name_seller']}")
+        pdf.drawString(40, height - 150, f"Cliente: {sale['name_client']}")
+        pdf.drawString(40, height - 170, f"DNI Cliente: {sale.get('dni_client', 'N/A')}")
+        pdf.drawString(40, height - 190, f"Fecha: {sale['date_sale']}")
+        pdf.drawString(40, height - 210, f"Hora: {sale['hour_sale']}")
+        
+        # Dibujar encabezado de productos
+        pdf.setFont("Helvetica-Bold", 10)
+        y_position = height - 250
+        pdf.drawString(40, y_position, "Producto")
+        pdf.drawString(200, y_position, "Talla")
+        pdf.drawString(250, y_position, "Cantidad")
+        pdf.drawString(320, y_position, "Subtotal")
+        
+        # Dibujar detalles de productos
+        pdf.setFont("Helvetica", 10)
+        y_position -= 20
+        for product in sale['products']:
+            pdf.drawString(40, y_position, product['name_product'])
+            pdf.drawString(200, y_position, str(product['talla']))
+            pdf.drawString(250, y_position, str(product['quantity']))
+            pdf.drawString(320, y_position, f"S/ {product['subtotal']:.2f}")
+            y_position -= 20
+            if y_position < 50:  # Salto de página si se llena
+                pdf.showPage()
+                pdf.setFont("Helvetica", 10)
+                y_position = height - 50
+        
+        # Total de la venta
+        y_position -= 30
+        pdf.setFont("Helvetica-Bold", 12)
+        pdf.drawString(40, y_position, f"Total Venta: S/ {sale['total']:.2f}")
+        
+        # Finalizar y guardar el archivo PDF
+        pdf.save()
+        output.seek(0)
+        
+        # Nombrar el archivo
+        date_time_current = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+        file_name = f"Boleta_Venta_{date_time_current}.pdf"
+        
+        return (output, file_name)
+    except Exception as e:
+        print("Error al generar la boleta de venta en PDF:", e)
         return (None, None)
 # END REGION
