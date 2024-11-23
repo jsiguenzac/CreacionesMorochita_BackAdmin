@@ -388,7 +388,7 @@ async def update_sale(body: ParamAddUpdateSale, user_update: UserSchema, db: Ses
                 detail.PrecioVenta = product.price
                 detail.Talla = product.talla
                 detail.SubTotal = product.subtotal
-                detail.Activo=True,
+                detail.Activo=True
                 detail.FechaHoraModificacion = date_sale_updated
                 detail.UsuarioModificacion = u_update
             else:
