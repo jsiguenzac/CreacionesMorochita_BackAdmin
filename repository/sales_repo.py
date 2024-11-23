@@ -341,6 +341,18 @@ async def update_sale(body: ParamAddUpdateSale, user_update: UserSchema, db: Ses
 
                 if body.id_status == 3:  # Venta anulada / Reponer stock
                     product_in_stock.Stock += total_quantity
+                elif previous_status == 3:
+                    # Si la venta fue anulada y se cambió el estado, ajustar stock
+                    new_stock = product_in_stock.Stock - total_quantity
+                    if new_stock < 0:
+                        return exit_json(
+                            0,
+                            {
+                                "exito": False,
+                                "mensaje": f"No hay suficiente stock para el producto '{product_name}'",
+                            },
+                        )
+                    product_in_stock.Stock = new_stock
                 
                 
         # Actualizar venta
