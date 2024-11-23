@@ -594,7 +594,8 @@ async def generate_boleta_sale(id_sale: int, db: Session):
         ).filter(
             and_(
                 ModelSales.Venta.Activo,
-                ModelSales.Venta.IdVenta == id_sale
+                ModelSales.Venta.IdVenta == id_sale,
+                ModelDetailSales.DetalleVenta.Activo
             )
         ).first()
         
