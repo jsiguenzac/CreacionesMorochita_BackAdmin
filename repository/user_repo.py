@@ -7,7 +7,8 @@ from models import model_products as ModelProduct
 from config.DB.database import get_db
 from sqlalchemy.orm import Session
 from utils.methods import EmailServiceEnv, exit_json, generate_random_password, long_to_date
-from datetime import datetime, timedelta
+from datetime import timedelta
+from utils.methods import get_peru_date, get_peru_datetime
 from sqlalchemy import Date, and_, or_, func
 from collections import defaultdict
 from schemas.User_Schema import (
@@ -91,7 +92,7 @@ async def add_user(user: UserSchema, user_creation: UserSchema, db: Session):
                 find_user.IdRol = user.id_rol
                 find_user.Telefono = user.phone
                 find_user.Activo = True
-                find_user.FechaHoraModificacion = datetime.now()
+                find_user.FechaHoraModificacion = get_peru_datetime()
                 find_user.UsuarioModificacion = user_creat_mod
                 db.commit()
                 db.refresh(user)
@@ -105,7 +106,7 @@ async def add_user(user: UserSchema, user_creation: UserSchema, db: Session):
                 IdRol=user.id_rol,
                 Telefono=user.phone,
                 Activo=True,
-                FechaHoraCreacion=datetime.now(),
+                FechaHoraCreacion=get_peru_datetime(),
                 UsuarioCreacion=user_creat_mod,
             )
             db.add(new_user)
@@ -166,7 +167,7 @@ async def update_user_by_id_(user: UserUpdate, user_modification: UserSchema, db
         find_user.DNI = user.dni if user.dni else None
         find_user.IdRol = user.id_rol if user.id_rol else find_user.IdRol
         find_user.Telefono = user.phone if user.phone else None
-        find_user.FechaHoraModificacion = datetime.now()
+        find_user.FechaHoraModificacion = get_peru_datetime()
         find_user.UsuarioModificacion = user_modification["email"]
 
         db.commit()
@@ -277,7 +278,7 @@ async def update_status_user_by_id(id_user: int, is_active, user_delete: UserSch
             return exit_json(0, {"exito": False, "mensaje": "USUARIO_NO_ENCONTRADO"})
 
         user.Activo = is_active
-        user.FechaHoraModificacion = datetime.now()
+        user.FechaHoraModificacion = get_peru_datetime()
         user.UsuarioModificacion = user_delete["email"]
         db.commit()
         db.refresh(user)
@@ -339,7 +340,7 @@ async def update_password_user_with_hash(
             return exit_json(0, {"exito": False, "mensaje": "CLAVE_ACTUAL_INCORRECTA"})
 
         find_user.Clave = crypt.hash(userPass.new_pass)
-        find_user.FechaHoraModificacion = datetime.now()
+        find_user.FechaHoraModificacion = get_peru_datetime()
         find_user.UsuarioModificacion = user["email"]
 
         db.commit()
@@ -362,8 +363,8 @@ async def details_dashboard_by_user(user: UserSchema, db: Session):
             return exit_json(0, { "mensaje": "Usuario sin permisos" }) """
 
         # Fecha de inicio del mes actual y seis meses atrás
-        start_of_month = datetime.now().replace(day=1)
-        six_months_ago = datetime.now() - timedelta(days=180)
+        start_of_month = get_peru_date().replace(day=1)
+        six_months_ago = get_peru_date() - timedelta(days=180)
         previous_six_months = six_months_ago - timedelta(days=180)
 
         # Total de usuarios activos y nuevos usuarios en el mes actual
@@ -383,7 +384,7 @@ async def details_dashboard_by_user(user: UserSchema, db: Session):
         ventas_hoy, ventas_ultimos_6_meses, ventas_periodo_anterior = db.query(
             func.sum(ModelSale.Venta.Total).filter(
                 ModelSale.Venta.Activo,
-                ModelSale.Venta.FechaHoraVenta.cast(Date) == datetime.now().date()
+                ModelSale.Venta.FechaHoraVenta.cast(Date) == get_peru_date()
             ),
             func.sum(ModelSale.Venta.Total).filter(
                 ModelSale.Venta.Activo,
@@ -478,7 +479,7 @@ async def profile_user(user: UserSchema, db: Session):
     try:
         id_user_current = user["id_user"]        
         # Fecha de inicio del mes actual
-        start_of_month = datetime.now().replace(day=1)
+        start_of_month = get_peru_date().replace(day=1)
         # Cantidad de ventas del mes actual
         ventas_month_current = db.query(
             func.count(ModelSale.Venta.IdVenta)

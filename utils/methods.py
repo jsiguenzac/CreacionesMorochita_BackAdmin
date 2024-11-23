@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+import time
+import pytz
 
 # REGION: Formato JSON para salida de todos los endpoints
 from schemas.exit_api.BaseOut import BaseM, Salida
@@ -69,18 +71,58 @@ def EmailServiceEnv():
 
 # REGION: Método para convertir long a datetime UTC
 def long_to_date(timestamp: int):
+    """
+    Convierte un timestamp (en milisegundos) a una fecha en la zona horaria de Perú.
+    :param timestamp: El timestamp en milisegundos.
+    :return: Fecha en formato date en la zona horaria de Perú, o -1 si hay un error.
+    """
     try:
-        if timestamp == -1:
-            return timestamp
+        # Validar si el timestamp es inválido
+        if timestamp == -1 or not isinstance(timestamp, int):
+            return -1
+        
         # Convertir timestamp (milisegundos) a segundos
         timestamp_sec = timestamp / 1000
+
         # Convertir a datetime en UTC
         dt_utc = datetime.fromtimestamp(timestamp_sec, tz=timezone.utc)
-        return dt_utc.date()
+
+        # Convertir a la zona horaria de Perú
+        peru_tz = pytz.timezone('America/Lima')
+        dt_peru = dt_utc.astimezone(peru_tz)
+        print("Fecha en Perú:", dt_peru)
+
+        return dt_peru
     except Exception as e:
+        # Otros errores inesperados
         print("Error al convertir timestamp a fecha:", e)
         return -1
 # END REGION
+
+# Método para obtener la fecha y hora actual en Perú
+def get_peru_datetime():
+    """
+    Obtiene la fecha y hora actual en la zona horaria de Perú.
+    :return: Objeto datetime con la hora y fecha actual en Perú.
+    """
+    peru_tz = pytz.timezone('America/Lima')
+    return datetime.now(peru_tz)
+
+# Método para obtener solo la fecha actual en Perú
+def get_peru_date():
+    """
+    Obtiene la fecha actual en la zona horaria de Perú.
+    :return: Objeto date con la fecha actual en Perú.
+    """
+    return get_peru_datetime().date()
+
+# Método para obtener solo la hora actual en Perú
+def get_peru_time():
+    """
+    Obtiene la hora actual en la zona horaria de Perú.
+    :return: Objeto time con la hora actual en Perú.
+    """
+    return get_peru_datetime().time()
 
 # REGION: Método para exportar reporte de ventas a Excel
 import pandas as pd

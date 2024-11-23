@@ -3,7 +3,8 @@ from config.DB.database import get_db
 from sqlalchemy.orm import Session
 from schemas.User_Schema import UserSchema
 from utils.methods import exit_json
-from datetime import datetime
+#from datetime import datetime
+from utils.methods import get_peru_date, get_peru_datetime
 from sqlalchemy import func, or_, and_, Date
 from models import (
     model_products as ModelProduct,
@@ -53,8 +54,8 @@ async def get_list_products(body: ParamVistaProduct, db: Session):
             ModelProduct.Productos.IdProducto.desc()
         ).offset(offset).limit(page_size).all()
         
-        current_month = datetime.now().month
-        current_year = datetime.now().year
+        current_month = get_peru_date().month
+        current_year = get_peru_date().year
         lstProducts = []
         
         for prod in products:
@@ -116,7 +117,7 @@ async def add_product(body: ParamAddUpdateProduct, user_creation: UserSchema, db
             IdUsuario= user_creation["id_user"],
             IdUsuarioProveedor = body.id_provider,
             Activo = True,
-            FechaHoraCreacion = datetime.now(),
+            FechaHoraCreacion = get_peru_datetime(),
             UsuarioCreacion= user_creation["email"],
         )
         db.add(new_product)
@@ -146,7 +147,7 @@ async def update_product(body: ParamAddUpdateProduct, user_creation: UserSchema,
         find_product.Precio = body.price if body.price > 0 else 0
         find_product.IdCategoria = body.id_category
         find_product.IdUsuarioProveedor = body.id_provider
-        find_product.FechaHoraModificacion = datetime.now()
+        find_product.FechaHoraModificacion = get_peru_datetime()
         find_product.UsuarioModificacion = user_creation["email"]        
         db.commit()
         db.refresh(find_product)

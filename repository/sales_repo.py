@@ -9,7 +9,8 @@ from config.DB.database import get_db
 from sqlalchemy.orm import Session, joinedload
 from schemas.User_Schema import UserSchema
 from utils.methods import EmailServiceEnv, exit_json, long_to_date
-from datetime import datetime
+#from datetime import datetime
+from utils.methods import get_peru_date, get_peru_datetime
 from sqlalchemy import Date, and_, or_
 from schemas.Sales_Schema import *
 from collections import defaultdict
@@ -135,7 +136,7 @@ async def add_sale(body: ParamAddUpdateSale, user_creation: UserSchema, db: Sess
             return exit_json(0, {"exito": False, "mensaje": msg, "product": id_product})
         
         # Registro de venta
-        date_sale_created = datetime.now()
+        date_sale_created = get_peru_datetime()
         u_creation = user_creation["email"]
         new_sale = ModelSales.Venta(
             IdUsuarioVenta=user_creation["id_user"],
@@ -203,7 +204,7 @@ async def update_sale(body: ParamAddUpdateSale, user_update: UserSchema, db: Ses
         if not body.products:
             return exit_json(0, {"exito": False, "mensaje": "NO_HAY_PRODUCTOS"})
 
-        date_sale_updated = datetime.now()
+        date_sale_updated = get_peru_datetime()
         u_update = user_update["email"]
         
         find_sale = db.query(ModelSales.Venta).filter(
@@ -441,7 +442,7 @@ async def get_report_sales(body: ParamReportSalesSchema, db: Session):
         offset = (page - 1) * page_size
         
         # Validaciones
-        current_date = datetime.now().date()
+        current_date = get_peru_date()
         
         if date_start == -1:
             date_start = current_date
@@ -497,7 +498,7 @@ async def export_report_sales(body: ParamReportSalesSchema, db: Session):
         date_end = long_to_date(body.date_end)
         id_seller = body.id_seller
         # Validaciones
-        current_date = datetime.now().date()
+        current_date = get_peru_date()
         
         if date_start == -1:
             date_start = current_date
@@ -531,7 +532,7 @@ async def export_report_sales(body: ParamReportSalesSchema, db: Session):
         ).all()
         
         if len(sales_list) <= 0:
-            return exit_json(0, {"exito": False, "mensaje": "NO_HAY_VENTAS"})
+            return exit_json(0, {"exito": False, "mensaje": "NO_HAY_VENTAS", "current_date": current_date})
         
         sales_map = [
             ExportReportSalesSchema(
@@ -571,5 +572,4 @@ async def export_report_sales(body: ParamReportSalesSchema, db: Session):
         })
     except Exception as ex:
         return exit_json(0, {"exito": False, "mensaje": str(ex)})
-
 
