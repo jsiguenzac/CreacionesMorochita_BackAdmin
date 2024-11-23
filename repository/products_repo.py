@@ -65,7 +65,7 @@ async def get_list_products(body: ParamVistaProduct, db: Session):
                 ModelDetailSale.DetalleVenta.IdVenta == ModelSales.Venta.IdVenta
             ).filter(
                 ModelDetailSale.DetalleVenta.IdProducto == prod.IdProducto,
-                ModelSales.Venta.EstadoVenta != 3,  # No contar ventas anuladas
+                ModelSales.Venta.IdEstadoVenta != 3,  # No contar ventas anuladas
                 func.extract('month', ModelSales.Venta.FechaHoraVenta.cast(Date)) == current_month,
                 func.extract('year', ModelSales.Venta.FechaHoraVenta.cast(Date)) == current_year
             ).scalar() or 0  # Si no hay ventas, asigna 0
