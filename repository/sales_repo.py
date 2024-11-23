@@ -619,7 +619,7 @@ async def generate_boleta_sale(id_sale: int, db: Session):
                         price=detail.PrecioVenta,
                         quantity=detail.Cantidad,
                         subtotal=detail.SubTotal
-                    ) for detail in find_sales.DetalleVenta
+                    ) for detail in find_sales.DetalleVenta if detail.Activo
                 ]
             ).dict()        
         print("data_sales_map", sale_map)
