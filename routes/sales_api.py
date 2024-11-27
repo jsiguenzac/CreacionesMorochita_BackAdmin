@@ -96,8 +96,8 @@ async def export_sales_report(id_sale: int, db: Session = Depends(get_db)):
             return result
         
         filename = result.data["name_file"]
-        if not filename.endswith(".xlsx"):
-            filename += ".xlsx"
+        if not filename.endswith(".pdf"):
+            filename += ".pdf"
         return StreamingResponse(
             result.data["data_export"],
             media_type="application/pdf",
