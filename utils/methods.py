@@ -286,12 +286,13 @@ def generate_sales_receipt_pdf(sale: dict, logo_path: str):
 
         # Detalle de productos
         # Crear y configurar la tabla
-        table_data = [["Producto", "Talla", "Cantidad", "Subtotal"]]
+        table_data = [["Producto", "Talla", "Cantidad", "Precio", "Subtotal"]]
         for product in sale["products"]:
             table_data.append([
                 product["name_product"],
                 str(product["talla"]),
                 str(product["quantity"]),
+                f"S/ {product['price']:.2f}",
                 f"S/ {product['subtotal']:.2f}"
             ])
 
