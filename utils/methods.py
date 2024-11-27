@@ -312,8 +312,11 @@ def generate_sales_receipt_pdf(sale: dict, logo_path: str):
         table_width, table_height = table.wrapOn(pdf, width, height)
 
         # Dibujar la tabla en la posición calculada
-        table_y_position = y - table_height - 40  # Ajusta este valor para bajar la tabla
-        table.drawOn(pdf, margin, table_y_position)
+        table_y_position = y - table_height - 30  # Ajusta este valor para bajar la tabla
+        
+        table_x_position = (width - table_width) / 2  # Centrar horizontalmente
+        
+        table.drawOn(pdf, table_x_position, table_y_position)
 
         # Total de la venta alineado a la derecha
         total_text = f"Total: S/ {sale['total']:.2f}"
